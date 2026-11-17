@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0f1720">
+<link rel="manifest" href="manifest.webmanifest">
+<title>AutoHunt — Best Price Vehicle Finder</title>
+<style>
+  :root { --bg:#0f1720; --card:#17212c; --line:#253242; --text:#e8eef5; --muted:#8fa1b5; --accent:#ffb020; --good:#3ecf8e; --bad:#ff6b6b; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--text); }
+  header { padding:16px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--line); position:sticky; top:0; background:var(--bg); z-index:5; }
+  h1 { font-size:20px; margin:0; letter-spacing:.5px; } h1 span { color:var(--accent); }
+  .mode { font-size:11px; padding:4px 8px; border-radius:99px; background:var(--line); }
+  .mode.demo { background:#5a3b00; color:#ffd27a; }
+  main { max-width:900px; margin:auto; padding:12px; }
+  details.filters { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px; }
+  summary { cursor:pointer; font-weight:600; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:8px; margin-top:10px; }
+  label { font-size:12px; color:var(--muted); display:flex; flex-direction:column; gap:3px; }
+  input, select { background:var(--bg); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:9px; font-size:15px; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; align-items:center; }
+  button { background:var(--accent); color:#111; border:0; border-radius:10px; padding:11px 14px; font-weight:700; font-size:15px; cursor:pointer; }
+  button.ghost { background:transparent; color:var(--text); border:1px solid var(--line); font-weight:500; }
+  .rules { font-size:12px; color:var(--muted); margin:10px 2px; }
+  .rules b { color:var(--good); }
+  h2 { font-size:16px; margin:18px 2px 8px; }
+  .top3 { display:grid; gap:10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px; display:flex; gap:12px; }
+  .card.rank { border:2px solid var(--accent); }
+  .badge { background:var(--accent); color:#111; font-weight:800; border-radius:10px; min-width:42px; height:42px; display:grid; place-items:center; font-size:18px; }
+  .photo { width:96px; height:72px; border-radius:8px; object-fit:cover; background:var(--line); flex-shrink:0; }
+  .info { flex:1; min-width:0; }
+  .t { font-weight:700; } .price { font-size:20px; font-weight:800; color:var(--accent); }
+  .meta { font-size:13px; color:var(--muted); }
+  .tags { display:flex; gap:6px; flex-wrap:wrap; margin-top:4px; }
+  .tag { font-size:11px; padding:2px 7px; border-radius:99px; background:var(--line); }
+  .tag.ok { background:#123d2b; color:var(--good); } .tag.drop { background:#123d2b; color:var(--good); } .tag.up { background:#3d1515; color:var(--bad); }
+  a { color:var(--accent); }
+  .list .card { padding:10px; }
+  .status { font-size:13px; color:var(--muted); margin:8px 2px; }
+  .err { color:var(--bad); }
+  .watch { display:flex; justify-content:space-between; align-items:center; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px; margin-bottom:6px; font-size:13px; }
+  .sample { font-size:12px; background:#5a3b00; color:#ffd27a; padding:8px 10px; border-radius:8px; margin:8px 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Auto<span>Hunt</span></h1>
+  <span id="mode" class="mode">…</span>
+</header>
+<main>
+  <details class="filters" open>
+    <summary>Filters</summary>
+    <div class="grid">
+      <label>Make<input id="make" placeholder="Any (e.g. Toyota)"></label>
+      <label>Model<input id="model" placeholder="Any (e.g. Tacoma)"></label>
+      <label>Year from<input id="yearMin" type="number" inputmode="numeric" placeholder="2012"></label>
+      <label>Year to<input id="yearMax" type="number" inputmode="numeric" placeholder="2025"></label>
+      <label>Min price<input id="priceMin" type="number" inputmode="numeric" placeholder="$0"></label>
+      <label>Max price<input id="priceMax" type="number" inputmode="numeric" placeholder="$25000"></label>
+      <label>Body<select id="body"><option value="">Any</option><option>Pickup</option><option>SUV</option><option>Sedan</option><option>Van</option><option>Wagon</option><option>Hatchback</option><option>Coupe</option><option>Minivan</option></select></label>
+      <label>Drivetrain<select id="drivetrain"><option value="">Any</option><option>4WD</option><option>AWD</option><option>FWD</option><option>RWD</option></select></label>
+      <label>Fuel<select id="fuel"><option value="">Any</option><option>Gasoline</option><option>Diesel</option><option>Hybrid</option><option>Electric</option></select></label>
+      <label>Seller<select id="seller"><option value="">Dealers</option><option value="fsbo">Private sellers</option><option value="auction">Auctions</option></select></label>
+      <label>Radius (mi)<select id="radius"><option>25</option><option>50</option><option selected>100</option><option>200</option><option>500</option></select></label>
+      <label>ZIP (if no GPS)<input id="zip" inputmode="numeric" maxlength="5" placeholder="97058"></label>
+    </div>
+    <div class="row">
+      <button id="gps" class="ghost">📍 Use my location</button>
+      <span id="loc" class="meta">No location yet</span>
+    </div>
+    <div class="row">
+      <button id="go">Find best prices</button>
+      <button id="save" class="ghost">🔔 Watch this search</button>
+      <label style="flex-direction:row;align-items:center;gap:6px"><input type="checkbox" id="auto" checked> Auto-refresh</label>
+    </div>
+  </details>
+
+  <p class="rules">Rules always applied: <b>✔ Clean title only</b> (confirmed — unknown title status is excluded) · <b>✔ Under 90,000 miles</b></p>
+  <div id="sampleNote"></div>
+  <div id="status" class="status"></div>
+
+  <h2>🏆 Top 3 cheapest</h2>
+  <div id="top3" class="top3"></div>
+
+  <h2 id="allHead" hidden>All qualifying vehicles</h2>
+  <div class="row" id="sortRow" hidden>
+    <span class="meta">Sort:</span>
+    <button class="ghost" data-sort="price">Price</button>
+    <button class="ghost" data-sort="distance">Closest</button>
+    <button class="ghost" data-sort="miles">Lowest miles</button>
+  </div>
+  <div id="list" class="list top3" style="margin-top:8px"></div>
+
+  <h2>🔔 Watched searches</h2>
+  <div id="watches" class="meta">None yet.</div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const F = ["make","model","yearMin","yearMax","priceMin","priceMax","body","drivetrain","fuel","seller","radius","zip"];
+let coords = null, results = [], sortKey = "price", timer = null, cfg = { refreshMinutes: 15 };
+
+const money = n => "$" + Math.round(n).toLocaleString();
+const num = n => Math.round(n).toLocaleString();
+
+try { const s = JSON.parse(localStorage.getItem("autohunt") || "{}"); F.forEach(k => s[k] != null && ($(k).value = s[k])); if (s.coords) { coords = s.coords; showLoc(); } } catch {}
+function persist() { try { const s = {}; F.forEach(k => s[k] = $(k).value); s.coords = coords; localStorage.setItem("autohunt", JSON.stringify(s)); } catch {} }
+
+function showLoc() { $("loc").textContent = coords ? `📍 ${coords.lat.toFixed(3)}, ${coords.lon.toFixed(3)}` : "No location yet"; }
+
+$("gps").onclick = () => {
+  if (!navigator.geolocation) { $("loc").textContent = "GPS not available — enter a ZIP"; return; }
+  $("loc").textContent = "Locating…";
+  navigator.geolocation.getCurrentPosition(
+    p => { coords = { lat: p.coords.latitude, lon: p.coords.longitude }; showLoc(); persist(); search(); },
+    e => { $("loc").textContent = "Location blocked (" + e.message + ") — enter a ZIP"; },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 300000 });
+};
+
+function filters() {
+  const f = {}; F.forEach(k => { const v = $(k).value.trim(); if (v) f[k] = v; });
+  if (coords) { f.lat = coords.lat; f.lon = coords.lon; }
+  return f;
+}
+
+function card(l, rank) {
+  const drop = l.priceChange < 0 ? `<span class="tag drop">▼ ${money(-l.priceChange)} since first seen</span>` : l.priceChange > 0 ? `<span class="tag up">▲ ${money(l.priceChange)}</span>` : "";
+  const photo = l.photo ? `<img class="photo" src="${l.photo}" alt="" loading="lazy">` : "";
+  const link = l.url ? `<a href="${l.url}" target="_blank" rel="noopener">View listing →</a>` : `<span class="meta">(sample — no link)</span>`;
+  const maps = (l.lat && l.lon) ? ` · <a href="https://www.google.com/maps/dir/?api=1&destination=${l.lat},${l.lon}" target="_blank" rel="noopener">Directions</a>` : "";
+  return `<div class="card ${rank ? "rank" : ""}">
+    ${rank ? `<div class="badge">#${rank}</div>` : ""}${photo}
+    <div class="info">
+      <div class="price">${money(l.price)}</div>
+      <div class="t">${l.title}</div>
+      <div class="meta">${num(l.miles)} mi · ${l.distance != null ? l.distance + " mi away" : "distance n/a"} · ${l.seller}${l.city ? ", " + l.city + (l.state ? " " + l.state : "") : ""}</div>
+      <div class="tags"><span class="tag ok">Clean title</span>${l.oneOwner ? '<span class="tag">1 owner</span>' : ""}${l.drivetrain ? `<span class="tag">${l.drivetrain}</span>` : ""}${l.daysOnMarket != null ? `<span class="tag">${l.daysOnMarket}d listed</span>` : ""}${drop}</div>
+      <div class="meta" style="margin-top:4px">${link}${maps}</div>
+    </div></div>`;
+}
+
+function render() {
+  const sorted = [...results].sort((a, b) => (a[sortKey] ?? 1e12) - (b[sortKey] ?? 1e12));
+  $("list").innerHTML = sorted.slice(3).map(l => card(l)).join("") || "";
+  $("allHead").hidden = $("sortRow").hidden = results.length <= 3;
+}
+
+async function search() {
+  persist();
+  if (!coords && !$("zip").value) { $("status").innerHTML = '<span class="err">Tap “Use my location” or enter a ZIP first.</span>'; return; }
+  $("status").textContent = "Searching…";
+  try {
+    const r = await fetch("/api/search?" + new URLSearchParams(filters())).then(r => r.json());
+    if (r.error) throw new Error(r.error);
+    results = r.results;
+    $("top3").innerHTML = r.top3.map((l, i) => card(l, i + 1)).join("") || '<div class="meta">No vehicles match. Try a wider radius or higher max price.</div>';
+    $("status").textContent = `${r.results.length} qualifying · ${r.excluded} excluded (salvage/rebuilt/unknown title or 90k+ miles) · updated ${new Date(r.fetchedAt).toLocaleTimeString()}`;
+    render();
+  } catch (e) { $("status").innerHTML = `<span class="err">Search failed: ${e.message}</span>`; }
+  schedule();
+}
+
+function schedule() {
+  clearTimeout(timer);
+  if ($("auto").checked) timer = setTimeout(search, cfg.refreshMinutes * 60000);
+}
+
+document.querySelectorAll("[data-sort]").forEach(b => b.onclick = () => { sortKey = b.dataset.sort; render(); });
+$("go").onclick = search;
+$("auto").onchange = schedule;
+
+$("save").onclick = async () => {
+  await fetch("/api/watches", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(filters()) });
+  loadWatches();
+};
+
+async function loadWatches() {
+  const ws = await fetch("/api/watches").then(r => r.json()).catch(() => []);
+  $("watches").innerHTML = ws.length ? ws.map(w => {
+    const f = w.filters || {}; const label = [f.make, f.model, f.body, f.priceMax && "≤" + money(f.priceMax), (f.radius || 100) + "mi"].filter(Boolean).join(" · ");
+    const best = w.top3?.[0] ? `Best: ${money(w.top3[0].price)} ${w.top3[0].title}` : "Checking…";
+    return `<div class="watch"><div><b>${label || "Any vehicle"}</b>${w.changed ? ' <span class="tag drop">NEW / price drop</span>' : ""}<br>${best}</div><button class="ghost" data-del="${w.id}">✕</button></div>`;
+  }).join("") : "None yet.";
+  document.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => { await fetch("/api/watches/" + b.dataset.del, { method: "DELETE" }); loadWatches(); });
+}
+
+fetch("/api/config").then(r => r.json()).then(c => {
+  cfg = c;
+  $("mode").textContent = c.mode === "live" ? "LIVE" : "DEMO";
+  $("mode").className = "mode " + c.mode;
+  if (c.mode === "demo") $("sampleNote").innerHTML = '<div class="sample">Demo mode: these are made-up sample listings to show how the app works. Add a MarketCheck API key to get real listings.</div>';
+});
+loadWatches(); setInterval(loadWatches, 60000);
+if (coords || $("zip").value) search();
+</script>
+</body>
+</html>

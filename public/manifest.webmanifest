@@ -1,0 +1,9 @@
+{
+  "name": "AutoHunt",
+  "short_name": "AutoHunt",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f1720",
+  "theme_color": "#0f1720",
+  "icons": []
+}

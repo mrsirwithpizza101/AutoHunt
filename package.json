@@ -1,0 +1,9 @@
+{
+  "name": "autohunt",
+  "version": "0.1.0",
+  "description": "Finds the cheapest clean-title, under-90k-mile vehicles near you, with GPS, filters and price tracking",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" },
+  "license": "UNLICENSED"
+}
