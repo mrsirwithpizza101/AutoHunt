@@ -42,6 +42,18 @@
     return p;
   }
 
+  // The seller's own photos, in listing order: de-duplicated, real image URLs only, capped.
+  function cleanPhotos(media) {
+    const links = (media && (media.photo_links || media.photo_links_cached)) || [];
+    const seen = new Set(), out = [];
+    for (const u of links) {
+      if (typeof u !== "string" || !/^https?:\/\//i.test(u) || seen.has(u)) continue;
+      seen.add(u); out.push(u);
+      if (out.length >= 40) break;
+    }
+    return out;
+  }
+
   function normalize(x, f) {
     const d = x.dealer || {}, b = x.build || {};
     const lat = Number(d.latitude), lon = Number(d.longitude);
@@ -55,7 +67,7 @@
       oneOwner: !!x.carfax_1_owner,
       seller: d.name || x.seller_type || "Seller", city: d.city, state: d.state, lat, lon,
       distance: x.dist != null ? Number(x.dist) : haversineMiles(Number(f.lat), Number(f.lon), lat, lon),
-      url: x.vdp_url || null, photo: (x.media && x.media.photo_links && x.media.photo_links[0]) || null,
+      url: x.vdp_url || null, photos: cleanPhotos(x.media), photo: cleanPhotos(x.media)[0] || null,
       daysOnMarket: x.dom, source: x.source || "marketcheck",
     };
   }
@@ -98,7 +110,7 @@
         id: `demo-${i}`, vin: `SAMPLE${String(i).padStart(11, "0")}`, title: `${year} ${make} ${model}`,
         year, make, model, body, drivetrain, fuel, price: Math.max(3500, Math.round(base / 50) * 50), miles,
         cleanTitle: rnd() > 0.15, oneOwner: rnd() > 0.6, seller: `Sample Seller ${i + 1}`, city: "Sample", state: "",
-        lat: clat, lon: clon, distance: haversineMiles(lat, lon, clat, clon), url: null, photo: null,
+        lat: clat, lon: clon, distance: haversineMiles(lat, lon, clat, clon), url: null, photo: null, photos: [],
         daysOnMarket: Math.floor(rnd() * 90), source: "SAMPLE DATA",
       });
     }
