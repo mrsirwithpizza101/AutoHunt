@@ -1,0 +1,77 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "public/**"
+      - "capacitor.config.json"
+      - "package.json"
+      - ".github/workflows/android-apk.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-apk
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Capacitor
+        run: npm install --no-audit --no-fund
+
+      - name: Create Android project
+        run: |
+          npx cap add android
+          npx cap sync android
+
+      - name: Add location permissions
+        run: |
+          MANIFEST=android/app/src/main/AndroidManifest.xml
+          sed -i 's#<uses-permission android:name="android.permission.INTERNET" />#<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-feature android:name="android.hardware.location.gps" android:required="false" />#' "$MANIFEST"
+          grep -q ACCESS_FINE_LOCATION "$MANIFEST" || (echo "Location permission not added" && exit 1)
+
+      - name: Set version
+        run: |
+          GRADLE=android/app/build.gradle
+          sed -i "s/versionCode 1$/versionCode ${{ github.run_number }}/" "$GRADLE"
+          sed -i "s/versionName \"1.0\"/versionName \"0.2.${{ github.run_number }}\"/" "$GRADLE"
+
+      - name: Build APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+          cp app/build/outputs/apk/debug/app-debug.apk ../AutoHunt.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AutoHunt-apk
+          path: AutoHunt.apk
+
+      - name: Publish to "Latest APK" release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest-apk --yes --cleanup-tag || true
+          gh release create latest-apk AutoHunt.apk \
+            --title "AutoHunt APK (build ${{ github.run_number }})" \
+            --notes "Latest Android build from commit ${{ github.sha }}. Download AutoHunt.apk on your phone and open it to install (allow installs from your browser if asked)." \
+            --target ${{ github.sha }}

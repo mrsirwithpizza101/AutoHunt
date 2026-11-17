@@ -42,6 +42,8 @@
   .status { font-size:13px; color:var(--muted); margin:8px 2px; }
   .err { color:var(--bad); }
   .watch { display:flex; justify-content:space-between; align-items:center; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px; margin-bottom:6px; font-size:13px; }
+  .panel { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px; margin-bottom:10px; }
+  .alert { border-left:3px solid var(--good); padding:6px 10px; margin:6px 0; background:var(--card); border-radius:6px; }
   .sample { font-size:12px; background:#5a3b00; color:#ffd27a; padding:8px 10px; border-radius:8px; margin:8px 0; }
 </style>
 </head>
@@ -51,6 +53,12 @@
   <span id="mode" class="mode">…</span>
 </header>
 <main>
+  <div id="serverPanel" class="panel" hidden>
+    <b>Connect to your AutoHunt server</b>
+    <div class="meta">Paste the https address of your AutoHunt server (e.g. your Render URL).</div>
+    <div class="row"><input id="apiBase" placeholder="https://autohunt.onrender.com" style="flex:1"><button id="saveServer">Connect</button></div>
+    <div id="serverMsg" class="meta"></div>
+  </div>
   <details class="filters" open>
     <summary>Filters</summary>
     <div class="grid">
@@ -73,6 +81,7 @@
     </div>
     <div class="row">
       <button id="go">Find best prices</button>
+      <input id="target" type="number" inputmode="numeric" placeholder="Alert me under $" style="width:150px">
       <button id="save" class="ghost">🔔 Watch this search</button>
       <label style="flex-direction:row;align-items:center;gap:6px"><input type="checkbox" id="auto" checked> Auto-refresh</label>
     </div>
@@ -96,10 +105,25 @@
 
   <h2>🔔 Watched searches</h2>
   <div id="watches" class="meta">None yet.</div>
+
+  <h2>📲 Price-drop alerts</h2>
+  <div class="panel">
+    <div class="meta">Alerts go to your phone through the free <b>ntfy</b> app (Play Store / App Store). No account needed: install it, tap <b>+</b>, and subscribe to the topic below. You'll get a notification when a watched vehicle drops in price, a new cheapest vehicle appears, or something lands under your target price.</div>
+    <div class="row"><input id="topic" placeholder="ntfy topic" style="flex:1"><button id="genTopic" class="ghost">New topic</button></div>
+    <div class="row"><button id="saveTopic">Save</button><button id="testAlert" class="ghost">Send test alert</button><span id="alertMsg" class="meta"></span></div>
+  </div>
+  <div id="alerts" class="meta" style="margin-top:8px"></div>
+
+  <p class="meta" style="margin-top:24px"><span id="usage"></span> <a href="#" id="changeServer" hidden>Change server</a></p>
 </main>
 
 <script>
 const $ = id => document.getElementById(id);
+const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+let API = "";
+try { API = (localStorage.getItem("apiBase") || "").replace(/\/$/, ""); } catch {}
+if (!isNative) API = "";
+const api = (p, o) => fetch(API + p, o).then(r => r.json());
 const F = ["make","model","yearMin","yearMax","priceMin","priceMax","body","drivetrain","fuel","seller","radius","zip"];
 let coords = null, results = [], sortKey = "price", timer = null, cfg = { refreshMinutes: 15 };
 
@@ -153,7 +177,7 @@ async function search() {
   if (!coords && !$("zip").value) { $("status").innerHTML = '<span class="err">Tap “Use my location” or enter a ZIP first.</span>'; return; }
   $("status").textContent = "Searching…";
   try {
-    const r = await fetch("/api/search?" + new URLSearchParams(filters())).then(r => r.json());
+    const r = await api("/api/search?" + new URLSearchParams(filters()));
     if (r.error) throw new Error(r.error);
     results = r.results;
     $("top3").innerHTML = r.top3.map((l, i) => card(l, i + 1)).join("") || '<div class="meta">No vehicles match. Try a wider radius or higher max price.</div>';
@@ -173,28 +197,71 @@ $("go").onclick = search;
 $("auto").onchange = schedule;
 
 $("save").onclick = async () => {
-  await fetch("/api/watches", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(filters()) });
-  loadWatches();
+  const body = { ...filters() }; if ($("target").value) body.targetPrice = $("target").value;
+  await api("/api/watches", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  $("target").value = ""; setTimeout(loadWatches, 800);
 };
 
 async function loadWatches() {
-  const ws = await fetch("/api/watches").then(r => r.json()).catch(() => []);
+  const ws = await api("/api/watches").catch(() => []);
   $("watches").innerHTML = ws.length ? ws.map(w => {
     const f = w.filters || {}; const label = [f.make, f.model, f.body, f.priceMax && "≤" + money(f.priceMax), (f.radius || 100) + "mi"].filter(Boolean).join(" · ");
-    const best = w.top3?.[0] ? `Best: ${money(w.top3[0].price)} ${w.top3[0].title}` : "Checking…";
-    return `<div class="watch"><div><b>${label || "Any vehicle"}</b>${w.changed ? ' <span class="tag drop">NEW / price drop</span>' : ""}<br>${best}</div><button class="ghost" data-del="${w.id}">✕</button></div>`;
+    const best = w.error ? `<span class="err">${w.error}</span>` : w.top3?.[0] ? `Best: ${money(w.top3[0].price)} ${w.top3[0].title}` : "Checking…";
+    const tgt = w.targetPrice ? ` · alert under ${money(w.targetPrice)}` : "";
+    return `<div class="watch"><div><b>${label || "Any vehicle"}</b>${tgt}${w.changed ? ' <span class="tag drop">NEW / price drop</span>' : ""}<br>${best}</div><button class="ghost" data-del="${w.id}">✕</button></div>`;
   }).join("") : "None yet.";
-  document.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => { await fetch("/api/watches/" + b.dataset.del, { method: "DELETE" }); loadWatches(); });
+  document.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => { await api("/api/watches/" + b.dataset.del, { method: "DELETE" }); loadWatches(); });
 }
 
-fetch("/api/config").then(r => r.json()).then(c => {
-  cfg = c;
-  $("mode").textContent = c.mode === "live" ? "LIVE" : "DEMO";
-  $("mode").className = "mode " + c.mode;
-  if (c.mode === "demo") $("sampleNote").innerHTML = '<div class="sample">Demo mode: these are made-up sample listings to show how the app works. Add a MarketCheck API key to get real listings.</div>';
-});
-loadWatches(); setInterval(loadWatches, 60000);
-if (coords || $("zip").value) search();
+function boot() {
+  $("serverPanel").hidden = true;
+  return api("/api/config").then(c => {
+    cfg = c;
+    $("mode").textContent = c.mode === "live" ? "LIVE" : "DEMO";
+    $("mode").className = "mode " + c.mode;
+    $("sampleNote").innerHTML = c.mode === "demo" ? '<div class="sample">Demo mode: these are made-up sample listings to show how the app works. Add a MarketCheck API key to get real listings.</div>' : "";
+    [...$("radius").options].forEach(o => o.disabled = +o.value > c.maxRadius);
+    if (+$("radius").value > c.maxRadius) $("radius").value = String(c.maxRadius);
+    if (c.mode === "live") $("usage").textContent = `API calls this month: ${c.usage.calls}/${c.usage.limit} · watches refresh every ${Math.round(c.refreshMinutes / 60 * 10) / 10}h.`;
+    $("changeServer").hidden = !isNative;
+    loadWatches(); loadAlerts(); loadSettings();
+    if (coords || $("zip").value) search();
+  }).catch(() => {
+    if (isNative) { $("serverPanel").hidden = false; $("serverMsg").textContent = API ? "Couldn't reach " + API + ". Check the address." : ""; }
+    else $("status").innerHTML = '<span class="err">Server not reachable.</span>';
+  });
+}
+
+$("saveServer").onclick = () => {
+  let v = $("apiBase").value.trim().replace(/\/$/, "");
+  if (v && !/^https?:\/\//.test(v)) v = "https://" + v;
+  API = v; try { localStorage.setItem("apiBase", v); } catch {}
+  $("serverMsg").textContent = "Connecting…"; boot();
+};
+$("changeServer").onclick = e => { e.preventDefault(); $("apiBase").value = API; $("serverPanel").hidden = false; window.scrollTo(0, 0); };
+
+async function loadSettings() { const s = await api("/api/settings").catch(() => ({})); $("topic").value = s.ntfyTopic || ""; }
+$("genTopic").onclick = () => { $("topic").value = "autohunt-" + Array.from(crypto.getRandomValues(new Uint8Array(6)), b => b.toString(36).padStart(2, "0")).join("").slice(0, 10); };
+$("saveTopic").onclick = async () => {
+  const s = await api("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ntfyTopic: $("topic").value }) });
+  $("topic").value = s.ntfyTopic; $("alertMsg").textContent = s.ntfyTopic ? "Saved. Subscribe to “" + s.ntfyTopic + "” in the ntfy app." : "Alerts off.";
+};
+$("testAlert").onclick = async () => {
+  const r = await api("/api/alerts/test", { method: "POST" }).catch(e => ({ error: e.message }));
+  $("alertMsg").textContent = r.delivered ? "Sent! Check your phone." : r.reason === "no topic set" ? "Save a topic first." : "Couldn't send (" + (r.status || r.error) + ").";
+  loadAlerts();
+};
+
+let lastAlertT = 0;
+async function loadAlerts() {
+  const a = await api("/api/alerts").catch(() => []);
+  $("alerts").innerHTML = a.slice(0, 10).map(x => `<div class="alert"><b>${x.title}</b><br>${x.message}${x.url ? ` · <a href="${x.url}" target="_blank" rel="noopener">View</a>` : ""}<br><span class="meta">${new Date(x.t).toLocaleString()}</span></div>`).join("");
+  if (a[0] && lastAlertT && a[0].t > lastAlertT && "Notification" in window && Notification.permission === "granted") new Notification(a[0].title, { body: a[0].message });
+  if (a[0]) lastAlertT = a[0].t; else lastAlertT = lastAlertT || 1;
+}
+
+setInterval(() => { if (!$("serverPanel").hidden) return; loadWatches(); loadAlerts(); }, 60000);
+boot();
 </script>
 </body>
 </html>

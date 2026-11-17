@@ -1,9 +1,17 @@
 {
   "name": "autohunt",
-  "version": "0.1.0",
-  "description": "Finds the cheapest clean-title, under-90k-mile vehicles near you, with GPS, filters and price tracking",
+  "version": "0.2.0",
+  "description": "Finds the cheapest clean-title, under-90k-mile vehicles near you, with GPS, filters, price tracking and price-drop alerts",
   "main": "server.js",
-  "scripts": { "start": "node server.js" },
+  "scripts": {
+    "start": "node server.js",
+    "android": "cap sync android && cap open android"
+  },
   "engines": { "node": ">=18" },
+  "devDependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/cli": "^7.0.0",
+    "@capacitor/core": "^7.0.0"
+  },
   "license": "UNLICENSED"
 }
