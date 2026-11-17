@@ -2,249 +2,441 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0f1720">
 <link rel="manifest" href="manifest.webmanifest">
-<title>AutoHunt — Best Price Vehicle Finder</title>
+<title>AutoHunt</title>
 <style>
-  :root { --bg:#0f1720; --card:#17212c; --line:#253242; --text:#e8eef5; --muted:#8fa1b5; --accent:#ffb020; --good:#3ecf8e; --bad:#ff6b6b; }
-  * { box-sizing:border-box; }
-  body { margin:0; font:15px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--text); }
-  header { padding:16px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--line); position:sticky; top:0; background:var(--bg); z-index:5; }
-  h1 { font-size:20px; margin:0; letter-spacing:.5px; } h1 span { color:var(--accent); }
-  .mode { font-size:11px; padding:4px 8px; border-radius:99px; background:var(--line); }
-  .mode.demo { background:#5a3b00; color:#ffd27a; }
-  main { max-width:900px; margin:auto; padding:12px; }
-  details.filters { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px; }
-  summary { cursor:pointer; font-weight:600; }
-  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:8px; margin-top:10px; }
-  label { font-size:12px; color:var(--muted); display:flex; flex-direction:column; gap:3px; }
-  input, select { background:var(--bg); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:9px; font-size:15px; }
-  .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; align-items:center; }
-  button { background:var(--accent); color:#111; border:0; border-radius:10px; padding:11px 14px; font-weight:700; font-size:15px; cursor:pointer; }
-  button.ghost { background:transparent; color:var(--text); border:1px solid var(--line); font-weight:500; }
-  .rules { font-size:12px; color:var(--muted); margin:10px 2px; }
-  .rules b { color:var(--good); }
-  h2 { font-size:16px; margin:18px 2px 8px; }
-  .top3 { display:grid; gap:10px; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px; display:flex; gap:12px; }
-  .card.rank { border:2px solid var(--accent); }
-  .badge { background:var(--accent); color:#111; font-weight:800; border-radius:10px; min-width:42px; height:42px; display:grid; place-items:center; font-size:18px; }
-  .photo { width:96px; height:72px; border-radius:8px; object-fit:cover; background:var(--line); flex-shrink:0; }
-  .info { flex:1; min-width:0; }
-  .t { font-weight:700; } .price { font-size:20px; font-weight:800; color:var(--accent); }
-  .meta { font-size:13px; color:var(--muted); }
-  .tags { display:flex; gap:6px; flex-wrap:wrap; margin-top:4px; }
-  .tag { font-size:11px; padding:2px 7px; border-radius:99px; background:var(--line); }
-  .tag.ok { background:#123d2b; color:var(--good); } .tag.drop { background:#123d2b; color:var(--good); } .tag.up { background:#3d1515; color:var(--bad); }
-  a { color:var(--accent); }
-  .list .card { padding:10px; }
-  .status { font-size:13px; color:var(--muted); margin:8px 2px; }
+  :root { --bg:#0f1720; --card:#17212c; --card2:#1d2936; --line:#26333f; --text:#eef3f8; --muted:#8fa1b5; --accent:#ffb020; --good:#3ecf8e; --bad:#ff6b6b; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  [hidden] { display:none !important; }
+  html, body { margin:0; background:var(--bg); color:var(--text); font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+  body.locked { overflow:hidden; }
+  button { font:inherit; color:inherit; background:none; border:0; cursor:pointer; }
+  a { color:var(--accent); text-decoration:none; }
+  .wrap { max-width:640px; margin:auto; padding:0 16px calc(32px + env(safe-area-inset-bottom)); }
+
+  /* top bar */
+  .top { display:flex; align-items:center; justify-content:space-between; padding:calc(14px + env(safe-area-inset-top)) 0 10px; }
+  .logo { font-size:22px; font-weight:800; letter-spacing:.3px; } .logo span { color:var(--accent); }
+  .top-r { display:flex; gap:8px; align-items:center; }
+  .chip { display:inline-flex; align-items:center; gap:6px; background:var(--card); border:1px solid var(--line); border-radius:99px; padding:7px 12px; font-size:14px; white-space:nowrap; max-width:180px; overflow:hidden; text-overflow:ellipsis; }
+  .icon-btn { width:38px; height:38px; border-radius:50%; background:var(--card); border:1px solid var(--line); display:grid; place-items:center; font-size:18px; }
+  .demo-tag { font-size:11px; background:#5a3b00; color:#ffd27a; padding:3px 8px; border-radius:99px; }
+
+  /* search card */
+  .hero { margin-top:6px; }
+  .hero h1 { font-size:26px; margin:6px 0 2px; }
+  .hero p { margin:0 0 14px; color:var(--muted); font-size:14px; }
+  .pickers { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .picker { text-align:left; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:10px 14px; min-height:62px; display:flex; flex-direction:column; justify-content:center; position:relative; }
+  .picker small { color:var(--muted); font-size:12px; }
+  .picker b { font-size:16px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding-right:16px; }
+  .picker::after { content:"▾"; position:absolute; right:12px; top:50%; transform:translateY(-50%); color:var(--muted); }
+  .picker.set { border-color:var(--accent); }
+  .picker[hidden] { display:none; }
+  .go { width:100%; margin-top:12px; background:var(--accent); color:#111; font-weight:800; font-size:17px; border-radius:14px; padding:15px; }
+  .rules { display:flex; gap:8px; justify-content:center; margin-top:10px; font-size:12px; color:var(--good); }
+  .clear { display:block; margin:8px auto 0; color:var(--muted); font-size:13px; }
+
+  /* results */
+  .results-head { display:flex; justify-content:space-between; align-items:baseline; margin:26px 0 10px; }
+  .results-head h2 { font-size:18px; margin:0; }
+  .muted { color:var(--muted); font-size:13px; }
+  .sorts { display:flex; gap:6px; margin-bottom:10px; overflow-x:auto; }
+  .sorts button { background:var(--card); border:1px solid var(--line); border-radius:99px; padding:6px 12px; font-size:13px; white-space:nowrap; }
+  .sorts button.on { background:var(--text); color:var(--bg); }
+  .car { width:100%; text-align:left; display:flex; gap:12px; background:var(--card); border:1px solid var(--line); border-radius:16px; padding:10px; margin-bottom:10px; }
+  .car.top { border:2px solid var(--accent); }
+  .thumb { width:104px; height:80px; border-radius:10px; background:var(--card2) center/cover no-repeat; flex-shrink:0; display:grid; place-items:center; font-size:30px; position:relative; }
+  .rank { position:absolute; top:-6px; left:-6px; background:var(--accent); color:#111; font-weight:800; font-size:12px; border-radius:99px; padding:2px 7px; }
+  .car .info { min-width:0; flex:1; }
+  .car .price { font-size:20px; font-weight:800; }
+  .car .name { font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .car .meta { color:var(--muted); font-size:13px; }
+  .drop { color:var(--good); font-size:12px; font-weight:600; }
+  .section-label { font-size:13px; color:var(--accent); font-weight:700; text-transform:uppercase; letter-spacing:.6px; margin:16px 2px 8px; }
+  .empty { text-align:center; color:var(--muted); padding:30px 10px; }
+  .status { text-align:center; color:var(--muted); font-size:13px; margin-top:14px; }
   .err { color:var(--bad); }
-  .watch { display:flex; justify-content:space-between; align-items:center; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px; margin-bottom:6px; font-size:13px; }
-  .panel { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px; margin-bottom:10px; }
-  .alert { border-left:3px solid var(--good); padding:6px 10px; margin:6px 0; background:var(--card); border-radius:6px; }
-  .sample { font-size:12px; background:#5a3b00; color:#ffd27a; padding:8px 10px; border-radius:8px; margin:8px 0; }
+  .skeleton { height:102px; border-radius:16px; margin-bottom:10px; background:linear-gradient(90deg,var(--card) 0%,var(--card2) 50%,var(--card) 100%); background-size:200% 100%; animation:sh 1.2s infinite; }
+  @keyframes sh { to { background-position:-200% 0; } }
+
+  /* bottom sheets */
+  .backdrop { position:fixed; inset:0; background:rgba(0,0,0,.55); opacity:0; pointer-events:none; transition:opacity .25s; z-index:20; }
+  .backdrop.show { opacity:1; pointer-events:auto; }
+  .sheet { position:fixed; left:0; right:0; bottom:0; max-width:640px; margin:auto; background:var(--card); border-radius:22px 22px 0 0; z-index:21; transform:translateY(105%); transition:transform .3s cubic-bezier(.2,.8,.2,1); max-height:86vh; display:flex; flex-direction:column; padding-bottom:env(safe-area-inset-bottom); touch-action:pan-y; }
+  .sheet.open { transform:translateY(0); }
+  .sheet.dragging { transition:none; }
+  .grab { padding:10px 0 4px; display:grid; place-items:center; cursor:grab; }
+  .grab i { width:44px; height:5px; border-radius:9px; background:#3a4a5a; }
+  .sheet h3 { margin:4px 20px 10px; font-size:18px; }
+  .sheet .body { overflow-y:auto; padding:0 20px 20px; overscroll-behavior:contain; }
+  .opt { width:100%; text-align:left; padding:15px 4px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; font-size:17px; }
+  .opt.on { color:var(--accent); font-weight:700; }
+  .opt.on::after { content:"✓"; }
+  .field { display:flex; flex-direction:column; gap:6px; margin:12px 0; font-size:13px; color:var(--muted); }
+  .field input, .field select { background:var(--bg); color:var(--text); border:1px solid var(--line); border-radius:12px; padding:13px; font-size:16px; }
+  .btn { width:100%; background:var(--accent); color:#111; font-weight:700; border-radius:12px; padding:13px; margin-top:6px; }
+  .btn.ghost { background:transparent; color:var(--text); border:1px solid var(--line); font-weight:500; }
+  .row2 { display:flex; gap:8px; } .row2 > * { flex:1; }
+  .d-photo { width:100%; height:200px; border-radius:14px; background:var(--card2) center/cover no-repeat; display:grid; place-items:center; font-size:60px; margin-bottom:12px; }
+  .d-price { font-size:28px; font-weight:800; }
+  .d-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:12px 0; }
+  .d-grid div { background:var(--bg); border-radius:10px; padding:9px 11px; font-size:14px; } .d-grid small { display:block; color:var(--muted); font-size:11px; }
+  .list-item { background:var(--bg); border-radius:12px; padding:10px 12px; margin-bottom:8px; font-size:14px; display:flex; justify-content:space-between; gap:10px; align-items:center; }
+  .note { font-size:13px; color:var(--muted); }
+  .toast { position:fixed; left:50%; bottom:calc(24px + env(safe-area-inset-bottom)); transform:translate(-50%,200px); visibility:hidden; background:var(--text); color:var(--bg); padding:10px 16px; border-radius:99px; font-size:14px; font-weight:600; z-index:40; transition:transform .25s, visibility .25s; }
+  .toast.show { transform:translate(-50%,0); visibility:visible; }
 </style>
 </head>
 <body>
-<header>
-  <h1>Auto<span>Hunt</span></h1>
-  <span id="mode" class="mode">…</span>
-</header>
-<main>
-  <div id="serverPanel" class="panel" hidden>
-    <b>Connect to your AutoHunt server</b>
-    <div class="meta">Paste the https address of your AutoHunt server (e.g. your Render URL).</div>
-    <div class="row"><input id="apiBase" placeholder="https://autohunt.onrender.com" style="flex:1"><button id="saveServer">Connect</button></div>
-    <div id="serverMsg" class="meta"></div>
+<div class="wrap">
+  <div class="top">
+    <div class="logo">Auto<span>Hunt</span> <span id="demoTag" class="demo-tag" hidden>DEMO</span></div>
+    <div class="top-r">
+      <button class="chip" id="locChip">📍 <span id="locText">Set location</span></button>
+      <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+    </div>
   </div>
-  <details class="filters" open>
-    <summary>Filters</summary>
-    <div class="grid">
-      <label>Make<input id="make" placeholder="Any (e.g. Toyota)"></label>
-      <label>Model<input id="model" placeholder="Any (e.g. Tacoma)"></label>
-      <label>Year from<input id="yearMin" type="number" inputmode="numeric" placeholder="2012"></label>
-      <label>Year to<input id="yearMax" type="number" inputmode="numeric" placeholder="2025"></label>
-      <label>Min price<input id="priceMin" type="number" inputmode="numeric" placeholder="$0"></label>
-      <label>Max price<input id="priceMax" type="number" inputmode="numeric" placeholder="$25000"></label>
-      <label>Body<select id="body"><option value="">Any</option><option>Pickup</option><option>SUV</option><option>Sedan</option><option>Van</option><option>Wagon</option><option>Hatchback</option><option>Coupe</option><option>Minivan</option></select></label>
-      <label>Drivetrain<select id="drivetrain"><option value="">Any</option><option>4WD</option><option>AWD</option><option>FWD</option><option>RWD</option></select></label>
-      <label>Fuel<select id="fuel"><option value="">Any</option><option>Gasoline</option><option>Diesel</option><option>Hybrid</option><option>Electric</option></select></label>
-      <label>Seller<select id="seller"><option value="">Dealers</option><option value="fsbo">Private sellers</option><option value="auction">Auctions</option></select></label>
-      <label>Radius (mi)<select id="radius"><option>25</option><option>50</option><option selected>100</option><option>200</option><option>500</option></select></label>
-      <label>ZIP (if no GPS)<input id="zip" inputmode="numeric" maxlength="5" placeholder="97058"></label>
-    </div>
-    <div class="row">
-      <button id="gps" class="ghost">📍 Use my location</button>
-      <span id="loc" class="meta">No location yet</span>
-    </div>
-    <div class="row">
-      <button id="go">Find best prices</button>
-      <input id="target" type="number" inputmode="numeric" placeholder="Alert me under $" style="width:150px">
-      <button id="save" class="ghost">🔔 Watch this search</button>
-      <label style="flex-direction:row;align-items:center;gap:6px"><input type="checkbox" id="auto" checked> Auto-refresh</label>
-    </div>
-  </details>
 
-  <p class="rules">Rules always applied: <b>✔ Clean title only</b> (confirmed — unknown title status is excluded) · <b>✔ Under 90,000 miles</b></p>
-  <div id="sampleNote"></div>
+  <section class="hero">
+    <h1>Find your next vehicle</h1>
+    <p>Cheapest first, near you.</p>
+    <div class="pickers">
+      <button class="picker" data-pick="body"><small>Vehicle type</small><b>Any</b></button>
+      <button class="picker" data-pick="price"><small>Price</small><b>Any</b></button>
+      <button class="picker" data-pick="fuel"><small>Fuel</small><b>Any</b></button>
+      <button class="picker" data-pick="make"><small>Make</small><b>Any</b></button>
+      <button class="picker" data-pick="model" hidden><small>Model</small><b>Any</b></button>
+    </div>
+    <button class="go" id="go">Show vehicles</button>
+    <div class="rules"><span>✓ Clean title only</span><span>✓ Under 90k miles</span></div>
+    <button class="clear" id="clearBtn" hidden>Clear filters</button>
+  </section>
+
+  <section id="results"></section>
   <div id="status" class="status"></div>
+</div>
 
-  <h2>🏆 Top 3 cheapest</h2>
-  <div id="top3" class="top3"></div>
+<div class="backdrop" id="backdrop"></div>
 
-  <h2 id="allHead" hidden>All qualifying vehicles</h2>
-  <div class="row" id="sortRow" hidden>
-    <span class="meta">Sort:</span>
-    <button class="ghost" data-sort="price">Price</button>
-    <button class="ghost" data-sort="distance">Closest</button>
-    <button class="ghost" data-sort="miles">Lowest miles</button>
+<!-- option picker sheet -->
+<div class="sheet" id="pickSheet"><div class="grab"><i></i></div><h3 id="pickTitle"></h3><div class="body" id="pickBody"></div></div>
+
+<!-- location sheet -->
+<div class="sheet" id="locSheet"><div class="grab"><i></i></div><h3>Your location</h3><div class="body">
+  <button class="btn" id="gpsBtn">📍 Use my current location</button>
+  <div class="field">Or enter a ZIP code<input id="zip" inputmode="numeric" maxlength="5" placeholder="e.g. 97058"></div>
+  <div class="field">Search within<select id="radius"><option value="25">25 miles</option><option value="50">50 miles</option><option value="100" selected>100 miles</option><option value="200">200 miles</option><option value="500">500 miles</option></select></div>
+  <button class="btn ghost" id="locDone">Done</button>
+  <p class="note" id="locMsg"></p>
+</div></div>
+
+<!-- vehicle detail sheet -->
+<div class="sheet" id="carSheet"><div class="grab"><i></i></div><div class="body" id="carBody"></div></div>
+
+<!-- alert-me sheet -->
+<div class="sheet" id="watchSheet"><div class="grab"><i></i></div><h3>Alert me about this search</h3><div class="body">
+  <p class="note" id="watchDesc"></p>
+  <div class="field">Also alert me when something is under (optional)<input id="target" type="number" inputmode="numeric" placeholder="$ target price"></div>
+  <button class="btn" id="watchSave">🔔 Turn on alerts</button>
+  <p class="note">You'll get a phone notification for price drops and new cheapest vehicles. Set up notifications in ☰ Menu → Alerts.</p>
+</div></div>
+
+<!-- menu sheet -->
+<div class="sheet" id="menuSheet"><div class="grab"><i></i></div><h3>Menu</h3><div class="body">
+  <div class="section-label">Saved searches</div>
+  <div id="watches"><p class="note">None yet. Search, then tap “🔔 Alert me”.</p></div>
+
+  <div class="section-label">Alerts</div>
+  <p class="note">Install the free <b>ntfy</b> app, tap <b>+</b>, and subscribe to this topic to get notifications.</p>
+  <div class="row2"><div class="field" style="margin:0"><input id="topic" placeholder="Topic name"></div><button class="btn ghost" id="genTopic" style="margin:0;flex:0 0 auto;width:auto;padding:0 14px">New</button></div>
+  <div class="row2"><button class="btn" id="saveTopic">Save</button><button class="btn ghost" id="testAlert">Send test</button></div>
+  <p class="note" id="alertMsg"></p>
+  <div id="alerts"></div>
+
+  <div id="serverBox">
+    <div class="section-label">Server</div>
+    <div class="field">AutoHunt server address<input id="apiBase" placeholder="https://your-autohunt.onrender.com" autocapitalize="off" autocorrect="off"></div>
+    <button class="btn ghost" id="saveServer">Connect</button>
+    <p class="note" id="serverMsg"></p>
   </div>
-  <div id="list" class="list top3" style="margin-top:8px"></div>
+  <p class="note" id="usage"></p>
+</div></div>
 
-  <h2>🔔 Watched searches</h2>
-  <div id="watches" class="meta">None yet.</div>
-
-  <h2>📲 Price-drop alerts</h2>
-  <div class="panel">
-    <div class="meta">Alerts go to your phone through the free <b>ntfy</b> app (Play Store / App Store). No account needed: install it, tap <b>+</b>, and subscribe to the topic below. You'll get a notification when a watched vehicle drops in price, a new cheapest vehicle appears, or something lands under your target price.</div>
-    <div class="row"><input id="topic" placeholder="ntfy topic" style="flex:1"><button id="genTopic" class="ghost">New topic</button></div>
-    <div class="row"><button id="saveTopic">Save</button><button id="testAlert" class="ghost">Send test alert</button><span id="alertMsg" class="meta"></span></div>
-  </div>
-  <div id="alerts" class="meta" style="margin-top:8px"></div>
-
-  <p class="meta" style="margin-top:24px"><span id="usage"></span> <a href="#" id="changeServer" hidden>Change server</a></p>
-</main>
+<div class="toast" id="toast"></div>
 
 <script>
 const $ = id => document.getElementById(id);
+const money = n => "$" + Math.round(n).toLocaleString("en-US");
+const num = n => Math.round(n).toLocaleString("en-US");
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+
+// ---------- server address (APK needs a remote server; the website uses its own) ----------
 const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
-let API = "";
-try { API = (localStorage.getItem("apiBase") || "").replace(/\/$/, ""); } catch {}
-if (!isNative) API = "";
+const store = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+let API = isNative ? (store.get("apiBase", "") || "") : "";
 const api = (p, o) => fetch(API + p, o).then(r => r.json());
-const F = ["make","model","yearMin","yearMax","priceMin","priceMax","body","drivetrain","fuel","seller","radius","zip"];
-let coords = null, results = [], sortKey = "price", timer = null, cfg = { refreshMinutes: 15 };
+if (!isNative) $("serverBox").hidden = true;
 
-const money = n => "$" + Math.round(n).toLocaleString();
-const num = n => Math.round(n).toLocaleString();
+// ---------- filter options ----------
+const OPTIONS = {
+  body: { title: "Vehicle type", items: [["", "Any"], ["Pickup", "Truck"], ["SUV", "SUV"], ["Sedan", "Car / Sedan"], ["Hatchback", "Hatchback"], ["Minivan", "Minivan"], ["Cargo Van,Passenger Van,Van", "Van"], ["Wagon", "Wagon"], ["Coupe,Convertible", "Coupe / Convertible"]] },
+  price: { title: "Price", items: [["", "Any"], ["0-10000", "Under $10k"], ["10000-15000", "$10k – $15k"], ["15000-20000", "$15k – $20k"], ["20000-30000", "$20k – $30k"], ["30000-40000", "$30k – $40k"], ["40000-999999", "$40k+"]] },
+  fuel: { title: "Fuel", items: [["", "Any"], ["gas", "Gas"], ["hybrid", "Hybrid"], ["electric", "Electric (EV)"]] },
+};
+const MODELS = {
+  Chevrolet: ["Bolt EV", "Colorado", "Equinox", "Malibu", "Silverado 1500", "Tahoe", "Traverse"],
+  Dodge: ["Charger", "Durango", "Grand Caravan"],
+  Ford: ["Bronco", "Escape", "Explorer", "F-150", "Maverick", "Mustang", "Ranger", "Transit"],
+  GMC: ["Acadia", "Canyon", "Sierra 1500", "Yukon"],
+  Honda: ["Accord", "Civic", "CR-V", "HR-V", "Odyssey", "Pilot", "Ridgeline"],
+  Hyundai: ["Elantra", "Ioniq 5", "Kona", "Santa Fe", "Sonata", "Tucson"],
+  Jeep: ["Cherokee", "Gladiator", "Grand Cherokee", "Wrangler"],
+  Kia: ["EV6", "Forte", "Sorento", "Sportage", "Telluride"],
+  Mazda: ["CX-30", "CX-5", "CX-50", "Mazda3"],
+  Nissan: ["Altima", "Frontier", "Leaf", "Rogue", "Sentra"],
+  Ram: ["1500", "2500", "ProMaster"],
+  Subaru: ["Ascent", "Crosstrek", "Forester", "Outback"],
+  Tesla: ["Model 3", "Model S", "Model X", "Model Y"],
+  Toyota: ["4Runner", "Camry", "Corolla", "Highlander", "Prius", "RAV4", "RAV4 Hybrid", "Sienna", "Tacoma", "Tundra"],
+  Volkswagen: ["Atlas", "Golf", "ID.4", "Jetta", "Tiguan"],
+};
+OPTIONS.make = { title: "Make", items: [["", "Any"], ...Object.keys(MODELS).map(m => [m, m])] };
 
-try { const s = JSON.parse(localStorage.getItem("autohunt") || "{}"); F.forEach(k => s[k] != null && ($(k).value = s[k])); if (s.coords) { coords = s.coords; showLoc(); } } catch {}
-function persist() { try { const s = {}; F.forEach(k => s[k] = $(k).value); s.coords = coords; localStorage.setItem("autohunt", JSON.stringify(s)); } catch {} }
+let sel = Object.assign({ body: "", price: "", fuel: "", make: "", model: "" }, store.get("sel", {}));
+let loc = store.get("loc", { lat: null, lon: null, zip: "", radius: "100", label: "" });
+let results = [], sortKey = "price", cfg = { refreshMinutes: 15, maxRadius: 500 }, refreshTimer = null;
 
-function showLoc() { $("loc").textContent = coords ? `📍 ${coords.lat.toFixed(3)}, ${coords.lon.toFixed(3)}` : "No location yet"; }
+function labelFor(key) {
+  if (key === "model") return sel.model || "Any";
+  const it = OPTIONS[key].items.find(i => i[0] === sel[key]); return it ? it[1] : "Any";
+}
+function paintPickers() {
+  document.querySelectorAll("[data-pick]").forEach(b => {
+    const k = b.dataset.pick; b.querySelector("b").textContent = labelFor(k); b.classList.toggle("set", !!sel[k]);
+  });
+  document.querySelector('[data-pick="model"]').hidden = !(sel.make && MODELS[sel.make]);
+  $("clearBtn").hidden = !Object.values(sel).some(Boolean);
+  store.set("sel", sel);
+}
+function paintLoc() {
+  $("locText").textContent = loc.label || (loc.zip ? "ZIP " + loc.zip : loc.lat ? "Current location" : "Set location");
+  $("zip").value = loc.zip || ""; $("radius").value = loc.radius || "100";
+  store.set("loc", loc);
+}
 
-$("gps").onclick = () => {
-  if (!navigator.geolocation) { $("loc").textContent = "GPS not available — enter a ZIP"; return; }
-  $("loc").textContent = "Locating…";
-  navigator.geolocation.getCurrentPosition(
-    p => { coords = { lat: p.coords.latitude, lon: p.coords.longitude }; showLoc(); persist(); search(); },
-    e => { $("loc").textContent = "Location blocked (" + e.message + ") — enter a ZIP"; },
-    { enableHighAccuracy: true, timeout: 15000, maximumAge: 300000 });
+// ---------- bottom sheets with swipe-down to close ----------
+let openSheet = null;
+function showSheet(el) {
+  if (openSheet && openSheet !== el) closeSheet(openSheet, true);
+  openSheet = el; el.classList.add("open"); $("backdrop").classList.add("show"); document.body.classList.add("locked");
+}
+function closeSheet(el = openSheet, swap) {
+  if (!el) return;
+  el.classList.remove("open"); el.style.transform = "";
+  if (!swap) { $("backdrop").classList.remove("show"); document.body.classList.remove("locked"); }
+  if (openSheet === el) openSheet = null;
+}
+$("backdrop").onclick = () => closeSheet();
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeSheet(); });
+
+document.querySelectorAll(".sheet").forEach(sheet => {
+  const body = sheet.querySelector(".body");
+  let startY = 0, dy = 0, startT = 0, dragging = false, fromGrab = false;
+  const begin = (y, target) => {
+    fromGrab = !!target.closest(".grab") || !body.contains(target);
+    // only start a close-drag if touching the handle/header, or the content is scrolled to the top
+    if (!fromGrab && body.scrollTop > 0) return;
+    startY = y; dy = 0; startT = Date.now(); dragging = true;
+  };
+  const move = (y, e) => {
+    if (!dragging) return;
+    dy = y - startY;
+    if (dy <= 0) { if (!fromGrab) { dragging = false; } sheet.style.transform = ""; return; } // scrolling up inside content
+    if (e && e.cancelable) e.preventDefault();
+    sheet.classList.add("dragging");
+    sheet.style.transform = `translateY(${dy}px)`;
+    $("backdrop").style.opacity = String(Math.max(0, 1 - dy / sheet.offsetHeight));
+  };
+  const end = () => {
+    if (!dragging) return; dragging = false;
+    sheet.classList.remove("dragging"); $("backdrop").style.opacity = "";
+    const fast = dy / Math.max(1, Date.now() - startT) > 0.5;
+    if (dy > Math.min(120, sheet.offsetHeight * 0.25) || (fast && dy > 30)) closeSheet(sheet);
+    else sheet.style.transform = "";
+  };
+  sheet.addEventListener("touchstart", e => begin(e.touches[0].clientY, e.target), { passive: true });
+  sheet.addEventListener("touchmove", e => move(e.touches[0].clientY, e), { passive: false });
+  sheet.addEventListener("touchend", end); sheet.addEventListener("touchcancel", end);
+  // mouse drag on the handle (desktop)
+  sheet.querySelector(".grab").addEventListener("mousedown", e => {
+    begin(e.clientY, e.target);
+    const mm = ev => move(ev.clientY), mu = () => { end(); removeEventListener("mousemove", mm); removeEventListener("mouseup", mu); };
+    addEventListener("mousemove", mm); addEventListener("mouseup", mu);
+  });
+});
+
+// ---------- pickers ----------
+document.querySelectorAll("[data-pick]").forEach(b => b.onclick = () => {
+  const k = b.dataset.pick;
+  const items = k === "model" ? [["", "Any"], ...(MODELS[sel.make] || []).map(m => [m, m])] : OPTIONS[k].items;
+  $("pickTitle").textContent = k === "model" ? `${sel.make} model` : OPTIONS[k].title;
+  $("pickBody").innerHTML = items.map(([v, l]) => `<button class="opt ${sel[k] === v ? "on" : ""}" data-v="${esc(v)}">${esc(l)}</button>`).join("");
+  $("pickBody").scrollTop = 0;
+  $("pickBody").querySelectorAll(".opt").forEach(o => o.onclick = () => {
+    sel[k] = o.dataset.v;
+    if (k === "make") sel.model = "";
+    paintPickers(); closeSheet();
+  });
+  showSheet($("pickSheet"));
+});
+$("clearBtn").onclick = () => { sel = { body: "", price: "", fuel: "", make: "", model: "" }; paintPickers(); };
+
+// ---------- location ----------
+$("locChip").onclick = () => showSheet($("locSheet"));
+function getGPS() {
+  return new Promise(res => {
+    if (!navigator.geolocation) return res(false);
+    $("locMsg").textContent = "Finding you…";
+    navigator.geolocation.getCurrentPosition(
+      p => { loc = { ...loc, lat: p.coords.latitude, lon: p.coords.longitude, zip: "", label: "Near me" }; $("locMsg").textContent = ""; paintLoc(); res(true); },
+      () => { $("locMsg").textContent = "Location is off. Enter a ZIP code instead."; res(false); },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 300000 });
+  });
+}
+$("gpsBtn").onclick = async () => { if (await getGPS()) { closeSheet(); if (results.length) search(); } };
+$("locDone").onclick = () => {
+  const z = $("zip").value.trim();
+  if (z && /^\d{5}$/.test(z)) loc = { ...loc, zip: z, lat: null, lon: null, label: "ZIP " + z };
+  loc.radius = $("radius").value; paintLoc(); closeSheet();
+  if (results.length || z) search();
 };
 
-function filters() {
-  const f = {}; F.forEach(k => { const v = $(k).value.trim(); if (v) f[k] = v; });
-  if (coords) { f.lat = coords.lat; f.lon = coords.lon; }
-  return f;
+// ---------- search & results ----------
+function query() {
+  const q = { radius: loc.radius || "100" };
+  if (loc.lat) { q.lat = loc.lat; q.lon = loc.lon; } else if (loc.zip) q.zip = loc.zip;
+  if (sel.body) q.body = sel.body;
+  if (sel.fuel) q.fuel = sel.fuel;
+  if (sel.make) q.make = sel.make;
+  if (sel.model) q.model = sel.model;
+  if (sel.price) { const [a, b] = sel.price.split("-"); if (+a) q.priceMin = a; q.priceMax = b; }
+  return q;
 }
 
-function card(l, rank) {
-  const drop = l.priceChange < 0 ? `<span class="tag drop">▼ ${money(-l.priceChange)} since first seen</span>` : l.priceChange > 0 ? `<span class="tag up">▲ ${money(l.priceChange)}</span>` : "";
-  const photo = l.photo ? `<img class="photo" src="${l.photo}" alt="" loading="lazy">` : "";
-  const link = l.url ? `<a href="${l.url}" target="_blank" rel="noopener">View listing →</a>` : `<span class="meta">(sample — no link)</span>`;
-  const maps = (l.lat && l.lon) ? ` · <a href="https://www.google.com/maps/dir/?api=1&destination=${l.lat},${l.lon}" target="_blank" rel="noopener">Directions</a>` : "";
-  return `<div class="card ${rank ? "rank" : ""}">
-    ${rank ? `<div class="badge">#${rank}</div>` : ""}${photo}
+const ICON = { Pickup: "🛻", SUV: "🚙", Van: "🚐", Minivan: "🚐", "Cargo Van": "🚐", "Passenger Van": "🚐" };
+function carCard(l, rank) {
+  const bg = l.photo ? `style="background-image:url('${esc(l.photo)}')"` : "";
+  const drop = l.priceChange < 0 ? `<div class="drop">▼ ${money(-l.priceChange)} price drop</div>` : "";
+  return `<button class="car ${rank ? "top" : ""}" data-id="${esc(l.id)}">
+    <div class="thumb" ${bg}>${l.photo ? "" : ICON[l.body] || "🚗"}${rank ? `<span class="rank">#${rank}</span>` : ""}</div>
     <div class="info">
       <div class="price">${money(l.price)}</div>
-      <div class="t">${l.title}</div>
-      <div class="meta">${num(l.miles)} mi · ${l.distance != null ? l.distance + " mi away" : "distance n/a"} · ${l.seller}${l.city ? ", " + l.city + (l.state ? " " + l.state : "") : ""}</div>
-      <div class="tags"><span class="tag ok">Clean title</span>${l.oneOwner ? '<span class="tag">1 owner</span>' : ""}${l.drivetrain ? `<span class="tag">${l.drivetrain}</span>` : ""}${l.daysOnMarket != null ? `<span class="tag">${l.daysOnMarket}d listed</span>` : ""}${drop}</div>
-      <div class="meta" style="margin-top:4px">${link}${maps}</div>
-    </div></div>`;
+      <div class="name">${esc(l.title)}</div>
+      <div class="meta">${num(l.miles)} mi${l.distance != null ? " · " + Math.round(l.distance) + " mi away" : ""}</div>
+      ${drop}
+    </div></button>`;
 }
 
-function render() {
-  const sorted = [...results].sort((a, b) => (a[sortKey] ?? 1e12) - (b[sortKey] ?? 1e12));
-  $("list").innerHTML = sorted.slice(3).map(l => card(l)).join("") || "";
-  $("allHead").hidden = $("sortRow").hidden = results.length <= 3;
+function renderResults(r) {
+  const top = r.top3, rest = [...results].filter(l => !top.some(t => t.id === l.id))
+    .sort((a, b) => sortKey === "year" ? (b.year || 0) - (a.year || 0) : (a[sortKey] ?? 1e12) - (b[sortKey] ?? 1e12));
+  if (!results.length) {
+    $("results").innerHTML = `<div class="results-head"><h2>No matches</h2></div><div class="empty">Nothing clean-title under 90k miles right now.<br>Try a wider price range or a bigger search area.</div>`;
+    return;
+  }
+  $("results").innerHTML = `
+    <div class="results-head"><h2>${results.length} vehicles</h2><button class="muted" id="watchBtn">🔔 Alert me</button></div>
+    ${r.mode === "demo" ? '<p class="note">Demo mode: sample listings, not real vehicles.</p>' : ""}
+    <div class="section-label">Top 3 cheapest</div>
+    ${top.map((l, i) => carCard(l, i + 1)).join("")}
+    ${rest.length ? `<div class="section-label">More options</div>
+      <div class="sorts">${[["price", "Lowest price"], ["distance", "Closest"], ["miles", "Lowest miles"], ["year", "Newest"]].map(([k, t]) => `<button data-sort="${k}" class="${sortKey === k ? "on" : ""}">${t}</button>`).join("")}</div>
+      ${rest.map(l => carCard(l)).join("")}` : ""}`;
+  $("results").querySelectorAll(".car").forEach(c => c.onclick = () => showCar(c.dataset.id));
+  $("results").querySelectorAll("[data-sort]").forEach(b => b.onclick = () => { sortKey = b.dataset.sort; renderResults(r); });
+  $("watchBtn").onclick = openWatch;
 }
 
-async function search() {
-  persist();
-  if (!coords && !$("zip").value) { $("status").innerHTML = '<span class="err">Tap “Use my location” or enter a ZIP first.</span>'; return; }
-  $("status").textContent = "Searching…";
+let lastResponse = null;
+async function search(scroll) {
+  if (!loc.lat && !loc.zip) {
+    const ok = await getGPS();
+    if (!ok) { showSheet($("locSheet")); return; }
+  }
+  $("status").textContent = "";
+  $("results").innerHTML = `<div class="results-head"><h2>Searching…</h2></div>${'<div class="skeleton"></div>'.repeat(4)}`;
+  if (scroll) $("results").scrollIntoView({ behavior: "smooth", block: "start" });
   try {
-    const r = await api("/api/search?" + new URLSearchParams(filters()));
+    const r = await api("/api/search?" + new URLSearchParams(query()));
     if (r.error) throw new Error(r.error);
-    results = r.results;
-    $("top3").innerHTML = r.top3.map((l, i) => card(l, i + 1)).join("") || '<div class="meta">No vehicles match. Try a wider radius or higher max price.</div>';
-    $("status").textContent = `${r.results.length} qualifying · ${r.excluded} excluded (salvage/rebuilt/unknown title or 90k+ miles) · updated ${new Date(r.fetchedAt).toLocaleTimeString()}`;
-    render();
-  } catch (e) { $("status").innerHTML = `<span class="err">Search failed: ${e.message}</span>`; }
-  schedule();
+    lastResponse = r; results = r.results;
+    renderResults(r);
+    $("status").textContent = `Updated ${new Date(r.fetchedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+  } catch (e) {
+    $("results").innerHTML = "";
+    $("status").innerHTML = `<span class="err">Couldn't load vehicles: ${esc(e.message)}</span>`;
+    if (isNative && /fetch|network/i.test(e.message)) openMenuServer();
+  }
+  clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(() => search(false), cfg.refreshMinutes * 60000);
+}
+$("go").onclick = () => search(true);
+
+function showCar(id) {
+  const l = results.find(x => x.id === id); if (!l) return;
+  const bg = l.photo ? `style="background-image:url('${esc(l.photo)}')"` : "";
+  const dir = l.lat && l.lon ? `https://www.google.com/maps/dir/?api=1&destination=${l.lat},${l.lon}` : null;
+  $("carBody").innerHTML = `
+    <div class="d-photo" ${bg}>${l.photo ? "" : ICON[l.body] || "🚗"}</div>
+    <div class="d-price">${money(l.price)}</div>
+    <div style="font-size:18px;font-weight:600">${esc(l.title)}</div>
+    ${l.priceChange < 0 ? `<div class="drop">▼ ${money(-l.priceChange)} since first seen</div>` : ""}
+    <div class="d-grid">
+      <div><small>Miles</small>${num(l.miles)}</div>
+      <div><small>Distance</small>${l.distance != null ? Math.round(l.distance) + " mi" : "—"}</div>
+      <div><small>Title</small>✓ Clean${l.oneOwner ? " · 1 owner" : ""}</div>
+      <div><small>Drivetrain</small>${esc(l.drivetrain || "—")}</div>
+      <div><small>Fuel</small>${esc(l.fuel || "—")}</div>
+      <div><small>Listed</small>${l.daysOnMarket != null ? l.daysOnMarket + " days" : "—"}</div>
+    </div>
+    <p class="note">${esc(l.seller)}${l.city ? " · " + esc(l.city) + (l.state ? ", " + esc(l.state) : "") : ""}</p>
+    ${l.url ? `<a class="btn" style="display:block;text-align:center" href="${esc(l.url)}" target="_blank" rel="noopener">View listing</a>` : '<p class="note">Sample listing, no link.</p>'}
+    ${dir ? `<a class="btn ghost" style="display:block;text-align:center" href="${dir}" target="_blank" rel="noopener">Directions</a>` : ""}`;
+  $("carBody").scrollTop = 0;
+  showSheet($("carSheet"));
 }
 
-function schedule() {
-  clearTimeout(timer);
-  if ($("auto").checked) timer = setTimeout(search, cfg.refreshMinutes * 60000);
-}
-
-document.querySelectorAll("[data-sort]").forEach(b => b.onclick = () => { sortKey = b.dataset.sort; render(); });
-$("go").onclick = search;
-$("auto").onchange = schedule;
-
-$("save").onclick = async () => {
-  const body = { ...filters() }; if ($("target").value) body.targetPrice = $("target").value;
-  await api("/api/watches", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  $("target").value = ""; setTimeout(loadWatches, 800);
+// ---------- alerts / watches ----------
+function describe() { return [labelFor("body"), labelFor("price"), labelFor("fuel"), sel.make, sel.model].filter(v => v && v !== "Any").join(" · ") || "Any vehicle"; }
+function openWatch() { $("watchDesc").textContent = describe() + " · within " + (loc.radius || 100) + " mi"; $("target").value = ""; showSheet($("watchSheet")); }
+$("watchSave").onclick = async () => {
+  const body = { ...query(), label: describe() }; if ($("target").value) body.targetPrice = $("target").value;
+  try { await api("/api/watches", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); toast("Alerts on for this search"); }
+  catch { toast("Couldn't save. Check your connection."); }
+  closeSheet(); setTimeout(loadWatches, 800);
 };
 
 async function loadWatches() {
   const ws = await api("/api/watches").catch(() => []);
   $("watches").innerHTML = ws.length ? ws.map(w => {
-    const f = w.filters || {}; const label = [f.make, f.model, f.body, f.priceMax && "≤" + money(f.priceMax), (f.radius || 100) + "mi"].filter(Boolean).join(" · ");
-    const best = w.error ? `<span class="err">${w.error}</span>` : w.top3?.[0] ? `Best: ${money(w.top3[0].price)} ${w.top3[0].title}` : "Checking…";
-    const tgt = w.targetPrice ? ` · alert under ${money(w.targetPrice)}` : "";
-    return `<div class="watch"><div><b>${label || "Any vehicle"}</b>${tgt}${w.changed ? ' <span class="tag drop">NEW / price drop</span>' : ""}<br>${best}</div><button class="ghost" data-del="${w.id}">✕</button></div>`;
-  }).join("") : "None yet.";
-  document.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => { await api("/api/watches/" + b.dataset.del, { method: "DELETE" }); loadWatches(); });
+    const best = w.error ? `<span class="err">${esc(w.error)}</span>` : w.top3?.[0] ? `Best ${money(w.top3[0].price)} · ${esc(w.top3[0].title)}` : "Checking…";
+    return `<div class="list-item"><div><b>${esc(w.filters?.label || "Saved search")}</b>${w.targetPrice ? ` · under ${money(w.targetPrice)}` : ""}<br><span class="note">${best}</span></div><button data-del="${esc(w.id)}" aria-label="Remove">✕</button></div>`;
+  }).join("") : '<p class="note">None yet. Search, then tap “🔔 Alert me”.</p>';
+  $("watches").querySelectorAll("[data-del]").forEach(b => b.onclick = async () => { await api("/api/watches/" + b.dataset.del, { method: "DELETE" }); loadWatches(); });
 }
-
-function boot() {
-  $("serverPanel").hidden = true;
-  return api("/api/config").then(c => {
-    cfg = c;
-    $("mode").textContent = c.mode === "live" ? "LIVE" : "DEMO";
-    $("mode").className = "mode " + c.mode;
-    $("sampleNote").innerHTML = c.mode === "demo" ? '<div class="sample">Demo mode: these are made-up sample listings to show how the app works. Add a MarketCheck API key to get real listings.</div>' : "";
-    [...$("radius").options].forEach(o => o.disabled = +o.value > c.maxRadius);
-    if (+$("radius").value > c.maxRadius) $("radius").value = String(c.maxRadius);
-    if (c.mode === "live") $("usage").textContent = `API calls this month: ${c.usage.calls}/${c.usage.limit} · watches refresh every ${Math.round(c.refreshMinutes / 60 * 10) / 10}h.`;
-    $("changeServer").hidden = !isNative;
-    loadWatches(); loadAlerts(); loadSettings();
-    if (coords || $("zip").value) search();
-  }).catch(() => {
-    if (isNative) { $("serverPanel").hidden = false; $("serverMsg").textContent = API ? "Couldn't reach " + API + ". Check the address." : ""; }
-    else $("status").innerHTML = '<span class="err">Server not reachable.</span>';
-  });
+async function loadAlerts() {
+  const a = await api("/api/alerts").catch(() => []);
+  $("alerts").innerHTML = a.slice(0, 8).map(x => `<div class="list-item"><div><b>${esc(x.title)}</b><br><span class="note">${esc(x.message)}</span></div>${x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener">View</a>` : ""}</div>`).join("");
 }
-
-$("saveServer").onclick = () => {
-  let v = $("apiBase").value.trim().replace(/\/$/, "");
-  if (v && !/^https?:\/\//.test(v)) v = "https://" + v;
-  API = v; try { localStorage.setItem("apiBase", v); } catch {}
-  $("serverMsg").textContent = "Connecting…"; boot();
-};
-$("changeServer").onclick = e => { e.preventDefault(); $("apiBase").value = API; $("serverPanel").hidden = false; window.scrollTo(0, 0); };
-
 async function loadSettings() { const s = await api("/api/settings").catch(() => ({})); $("topic").value = s.ntfyTopic || ""; }
 $("genTopic").onclick = () => { $("topic").value = "autohunt-" + Array.from(crypto.getRandomValues(new Uint8Array(6)), b => b.toString(36).padStart(2, "0")).join("").slice(0, 10); };
 $("saveTopic").onclick = async () => {
-  const s = await api("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ntfyTopic: $("topic").value }) });
-  $("topic").value = s.ntfyTopic; $("alertMsg").textContent = s.ntfyTopic ? "Saved. Subscribe to “" + s.ntfyTopic + "” in the ntfy app." : "Alerts off.";
+  const s = await api("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ntfyTopic: $("topic").value }) }).catch(() => null);
+  if (!s) return ($("alertMsg").textContent = "Couldn't save.");
+  $("topic").value = s.ntfyTopic; $("alertMsg").textContent = s.ntfyTopic ? `Saved. Subscribe to “${s.ntfyTopic}” in ntfy.` : "Alerts off.";
 };
 $("testAlert").onclick = async () => {
   const r = await api("/api/alerts/test", { method: "POST" }).catch(e => ({ error: e.message }));
@@ -252,15 +444,33 @@ $("testAlert").onclick = async () => {
   loadAlerts();
 };
 
-let lastAlertT = 0;
-async function loadAlerts() {
-  const a = await api("/api/alerts").catch(() => []);
-  $("alerts").innerHTML = a.slice(0, 10).map(x => `<div class="alert"><b>${x.title}</b><br>${x.message}${x.url ? ` · <a href="${x.url}" target="_blank" rel="noopener">View</a>` : ""}<br><span class="meta">${new Date(x.t).toLocaleString()}</span></div>`).join("");
-  if (a[0] && lastAlertT && a[0].t > lastAlertT && "Notification" in window && Notification.permission === "granted") new Notification(a[0].title, { body: a[0].message });
-  if (a[0]) lastAlertT = a[0].t; else lastAlertT = lastAlertT || 1;
-}
+function openMenuServer() { $("apiBase").value = API; showSheet($("menuSheet")); }
+$("menuBtn").onclick = () => { loadWatches(); loadAlerts(); $("apiBase").value = API; showSheet($("menuSheet")); };
+$("saveServer").onclick = () => {
+  let v = $("apiBase").value.trim().replace(/\/$/, "");
+  if (v && !/^https?:\/\//.test(v)) v = "https://" + v;
+  API = v; store.set("apiBase", v); $("serverMsg").textContent = "Connecting…"; boot();
+};
 
-setInterval(() => { if (!$("serverPanel").hidden) return; loadWatches(); loadAlerts(); }, 60000);
+function toast(t) { const el = $("toast"); el.textContent = t; el.classList.add("show"); setTimeout(() => el.classList.remove("show"), 2200); }
+
+// ---------- start ----------
+async function boot() {
+  paintPickers(); paintLoc();
+  try {
+    cfg = await api("/api/config");
+    $("serverMsg").textContent = isNative ? "Connected." : "";
+    $("demoTag").hidden = cfg.mode !== "demo";
+    [...$("radius").options].forEach(o => o.disabled = +o.value > cfg.maxRadius);
+    if (+loc.radius > cfg.maxRadius) { loc.radius = String(cfg.maxRadius); paintLoc(); }
+    $("usage").textContent = cfg.mode === "live" ? `Searches used this month: ${cfg.usage.calls} of ${cfg.usage.limit}` : "Demo mode: sample listings only. Add a MarketCheck key on your server for real listings.";
+    loadSettings();
+    if (loc.lat || loc.zip) search(false);
+  } catch {
+    if (isNative) { $("serverMsg").textContent = API ? `Couldn't reach ${API}.` : "Enter your AutoHunt server address to start."; openMenuServer(); }
+    else $("status").innerHTML = '<span class="err">Server not reachable.</span>';
+  }
+}
 boot();
 </script>
 </body>

@@ -97,7 +97,8 @@ async function searchMarketCheck(f) {
   if (f.priceMin || f.priceMax) p.set("price_range", `${f.priceMin || 0}-${f.priceMax || 999999}`);
   if (f.body) p.set("body_type", f.body);
   if (f.drivetrain) p.set("drivetrain", f.drivetrain);
-  if (f.fuel) p.set("fuel_type", f.fuel);
+  const POWERTRAIN = { gas: "Combustion", hybrid: "HEV,PHEV,MHEV", electric: "BEV" };
+  if (f.fuel && POWERTRAIN[f.fuel.toLowerCase()]) p.set("powertrain_type", POWERTRAIN[f.fuel.toLowerCase()]);
   if (f.transmission) p.set("transmission", f.transmission);
   if (f.seller) p.set("seller_type", f.seller);
 
@@ -141,11 +142,13 @@ function searchDemo(f) {
     ["Subaru", "Outback", "Wagon", "AWD"], ["Toyota", "RAV4", "SUV", "AWD"], ["Ford", "Transit", "Van", "RWD"],
     ["Chevrolet", "Silverado 1500", "Pickup", "4WD"], ["Honda", "Civic", "Sedan", "FWD"], ["Jeep", "Wrangler", "SUV", "4WD"],
     ["Toyota", "4Runner", "SUV", "4WD"], ["Mazda", "CX-5", "SUV", "AWD"], ["Ram", "1500", "Pickup", "4WD"],
+    ["Toyota", "Prius", "Hatchback", "FWD", "Hybrid"], ["Toyota", "RAV4 Hybrid", "SUV", "AWD", "Hybrid"], ["Ford", "Maverick", "Pickup", "FWD", "Hybrid"],
+    ["Tesla", "Model 3", "Sedan", "RWD", "Electric"], ["Chevrolet", "Bolt EV", "Hatchback", "FWD", "Electric"], ["Toyota", "Sienna", "Minivan", "AWD", "Hybrid"],
   ];
   let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
   const out = [];
-  for (let i = 0; i < 60; i++) {
-    const [make, model, body, drivetrain] = cars[Math.floor(rnd() * cars.length)];
+  for (let i = 0; i < 90; i++) {
+    const [make, model, body, drivetrain, fuel = "Gas"] = cars[Math.floor(rnd() * cars.length)];
     const year = 2012 + Math.floor(rnd() * 13);
     const miles = Math.floor(8000 + rnd() * 140000);
     const ang = rnd() * 2 * Math.PI, dist = rnd() * 150;
@@ -154,7 +157,7 @@ function searchDemo(f) {
     const drift = Math.floor((Date.now() / (REFRESH_MIN * 60000)) % 5) * (i % 4 === 0 ? -250 : 0); // simulate price drops
     out.push({
       id: `demo-${i}`, vin: `SAMPLE${String(i).padStart(11, "0")}`,
-      title: `${year} ${make} ${model}`, year, make, model, body, drivetrain,
+      title: `${year} ${make} ${model}`, year, make, model, body, drivetrain, fuel,
       price: Math.max(3500, Math.round(base / 50) * 50 + drift), miles,
       cleanTitle: rnd() > 0.15 ? true : false, oneOwner: rnd() > 0.6,
       seller: `Sample Seller ${i + 1}`, city: "Sample", state: "", lat: clat, lon: clon,
@@ -165,7 +168,8 @@ function searchDemo(f) {
   return out.filter(l =>
     (!f.make || l.make.toLowerCase() === f.make.toLowerCase()) &&
     (!f.model || l.model.toLowerCase().includes(f.model.toLowerCase())) &&
-    (!f.body || l.body.toLowerCase() === f.body.toLowerCase()) &&
+    (!f.body || f.body.toLowerCase().split(",").includes(l.body.toLowerCase())) &&
+    (!f.fuel || l.fuel.toLowerCase() === f.fuel.toLowerCase()) &&
     (!f.drivetrain || l.drivetrain.toLowerCase() === f.drivetrain.toLowerCase()) &&
     (!f.yearMin || l.year >= +f.yearMin) && (!f.yearMax || l.year <= +f.yearMax) &&
     (!f.priceMin || l.price >= +f.priceMin) && (!f.priceMax || l.price <= +f.priceMax) &&
