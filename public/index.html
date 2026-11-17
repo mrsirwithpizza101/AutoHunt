@@ -18,7 +18,7 @@
 
   /* top bar */
   .top { display:flex; align-items:center; justify-content:space-between; padding:calc(14px + env(safe-area-inset-top)) 0 10px; }
-  .logo { font-size:22px; font-weight:800; letter-spacing:.3px; white-space:nowrap; display:flex; align-items:center; gap:6px; } .logo span { color:var(--accent); }
+  .logo { font-size:22px; font-weight:800; letter-spacing:.3px; white-space:nowrap; display:flex; align-items:center; gap:6px; } .logo .h { color:var(--accent); }
   .top-r { display:flex; gap:8px; align-items:center; }
   .chip { display:inline-flex; align-items:center; gap:6px; background:var(--card); border:1px solid var(--line); border-radius:99px; padding:7px 12px; font-size:14px; white-space:nowrap; max-width:180px; overflow:hidden; text-overflow:ellipsis; }
   .icon-btn { width:38px; height:38px; border-radius:50%; background:var(--card); border:1px solid var(--line); display:grid; place-items:center; font-size:18px; }
@@ -94,6 +94,12 @@
   .d-grid div { background:var(--bg); border-radius:10px; padding:9px 11px; font-size:14px; } .d-grid small { display:block; color:var(--muted); font-size:11px; }
   .list-item { background:var(--bg); border-radius:12px; padding:10px 12px; margin-bottom:8px; font-size:14px; display:flex; justify-content:space-between; gap:10px; align-items:center; }
   .note { font-size:13px; color:var(--muted); }
+  .sticky-cta { padding:10px 20px 12px; border-top:1px solid var(--line); background:var(--card); }
+  .sticky-cta:empty { display:none; }
+  .seller { background:var(--bg); border-radius:12px; padding:11px 13px; margin:6px 0 8px; font-size:15px; }
+  .vin { display:flex; justify-content:space-between; align-items:center; background:var(--bg); border-radius:12px; padding:9px 13px; margin-bottom:8px; font-family:ui-monospace,Menlo,monospace; font-size:14px; }
+  .vin small { display:block; font-family:system-ui,sans-serif; color:var(--muted); font-size:11px; }
+  .link { color:var(--accent); font-size:14px; padding:6px 0; text-align:left; }
   .range-ends { display:flex; justify-content:space-between; font-size:12px; }
   input[type=range] { width:100%; accent-color:var(--accent); height:32px; }
   .more { width:100%; padding:14px; border:1px dashed var(--line); border-radius:14px; color:var(--muted); margin:4px 0 10px; }
@@ -104,7 +110,7 @@
 <body>
 <div class="wrap">
   <div class="top">
-    <div class="logo">Auto<span>Hunt</span> <span id="demoTag" class="demo-tag" hidden>DEMO</span></div>
+    <div class="logo"><span class="brand">Auto<span class="h">Hunt</span></span><span id="demoTag" class="demo-tag" hidden>DEMO</span></div>
     <div class="top-r">
       <button class="chip" id="locChip">📍 <span id="locText">Set location</span></button>
       <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
@@ -147,7 +153,7 @@
 </div></div>
 
 <!-- vehicle detail sheet -->
-<div class="sheet" id="carSheet"><div class="grab"><i></i></div><div class="body" id="carBody"></div></div>
+<div class="sheet" id="carSheet"><div class="grab"><i></i></div><div class="body" id="carBody"></div><div class="sticky-cta"></div></div>
 
 <!-- alert-me sheet -->
 <div class="sheet" id="watchSheet"><div class="grab"><i></i></div><h3>Alert me about this search</h3><div class="body">
@@ -531,9 +537,22 @@ function showCar(id) {
       <div><small>Fuel</small>${esc(l.fuel || "—")}</div>
       <div><small>Listed</small>${l.daysOnMarket != null ? l.daysOnMarket + " days" : "—"}</div>
     </div>
-    <p class="note">${esc(l.seller)}${l.city ? " · " + esc(l.city) + (l.state ? ", " + esc(l.state) : "") : ""}</p>
-    ${l.url ? `<a class="btn" style="display:block;text-align:center" href="${esc(l.url)}" target="_blank" rel="noopener">View listing</a>` : '<p class="note">Sample listing, no link.</p>'}
-    ${dir ? `<a class="btn ghost" style="display:block;text-align:center" href="${dir}" target="_blank" rel="noopener">Directions</a>` : ""}`;
+    <div class="seller">
+      <div><b>${esc(l.seller)}</b>${l.sellerType === "fsbo" ? " · private seller" : ""}<br>
+      <span class="note">${l.city ? esc(l.city) + (l.state ? ", " + esc(l.state) : "") : ""}${l.phone ? (l.city ? " · " : "") + esc(fmtPhone(l.phone)) : ""}</span></div>
+    </div>
+    ${l.vin && !/^SAMPLE/.test(l.vin) ? `<div class="vin"><span><small>VIN</small>${esc(l.vin)}</span><button class="link" id="copyVin">Copy</button></div>` : ""}
+    <div class="row2">
+      ${l.phone ? `<button class="btn ghost" data-open="tel:${esc(String(l.phone).replace(/[^\d+]/g, ""))}">📞 Call seller</button>` : ""}
+      ${dir ? `<button class="btn ghost" data-open="${esc(dir)}">🧭 Directions</button>` : ""}
+    </div>
+    ${l.sellerSite ? `<button class="link" style="margin-top:10px" data-open="${esc(l.sellerSite)}">Seller's website: ${esc(host(l.sellerSite))}</button>` : ""}
+    <div style="height:84px"></div>`;
+  $("carSheet").querySelector(".sticky-cta").innerHTML = l.url
+    ? `<button class="btn" data-open="${esc(l.url)}">View on seller's site ↗</button><div class="note" style="text-align:center;margin-top:6px">Opens ${esc(host(l.url))} to confirm price & details</div>`
+    : `<button class="btn" disabled style="opacity:.45">No seller page</button><div class="note" style="text-align:center;margin-top:6px">${l.source === "SAMPLE DATA" ? "Sample listing. Add your MarketCheck key for real sellers." : "This listing didn't include a link."}</div>`;
+  $("carSheet").querySelectorAll("[data-open]").forEach(b => b.onclick = () => openExternal(b.dataset.open));
+  if ($("copyVin")) $("copyVin").onclick = async () => { try { await navigator.clipboard.writeText(l.vin); toast("VIN copied"); } catch { toast("VIN: " + l.vin); } };
   $("carBody").scrollTop = 0;
   const g = $("gallery");
   if (photos.length > 1) g.onscroll = () => { $("gCount").textContent = `${Math.round(g.scrollLeft / g.clientWidth) + 1} / ${photos.length}`; };
@@ -600,6 +619,17 @@ $("saveServer").onclick = () => {
   API = v; store.set("apiBase", v); $("serverMsg").textContent = v ? "Connecting…" : "Searching from this phone.";
   boot();
 };
+
+function host(u) { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return "seller's site"; } }
+function fmtPhone(p) { const d = String(p).replace(/\D/g, "").replace(/^1(?=\d{10}$)/, ""); return d.length === 10 ? `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}` : String(p); }
+// Seller pages open in an in-app browser on Android (easy to come back), a new tab on the web.
+async function openExternal(url) {
+  const B = isNative && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser;
+  if (B && /^https?:/i.test(url)) { try { await B.open({ url, toolbarColor: "#0f1720" }); return; } catch {} }
+  if (/^tel:/i.test(url)) { location.href = url; return; }
+  const w = window.open(url, "_blank", "noopener");
+  if (!w) location.href = url;
+}
 
 function toast(t) { const el = $("toast"); el.textContent = t; el.classList.add("show"); setTimeout(() => el.classList.remove("show"), 2600); }
 

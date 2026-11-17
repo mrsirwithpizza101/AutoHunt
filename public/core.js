@@ -42,6 +42,13 @@
     return p;
   }
 
+  // Only real web links (never javascript: or other schemes) are shown as seller links.
+  function safeUrl(u) {
+    if (typeof u !== "string") return null;
+    u = u.trim(); if (/^\/\//.test(u)) u = "https:" + u;
+    return /^https?:\/\/[^\s]+$/i.test(u) ? u : null;
+  }
+
   // The seller's own photos, in listing order: de-duplicated, real image URLs only, capped.
   function cleanPhotos(media) {
     const links = (media && (media.photo_links || media.photo_links_cached)) || [];
@@ -66,8 +73,10 @@
       cleanTitle: x.carfax_clean_title === true ? true : x.carfax_clean_title === false ? false : null,
       oneOwner: !!x.carfax_1_owner,
       seller: d.name || x.seller_type || "Seller", city: d.city, state: d.state, lat, lon,
+      phone: d.phone || d.seller_phone || x.seller_phone || null, sellerSite: safeUrl(d.website && !/^https?:/i.test(d.website) ? "https://" + d.website : d.website),
+      sellerType: x.seller_type || null, firstSeen: x.first_seen_at_date || null, lastSeen: x.last_seen_at_date || null,
       distance: x.dist != null ? Number(x.dist) : haversineMiles(Number(f.lat), Number(f.lon), lat, lon),
-      url: x.vdp_url || null, photos: cleanPhotos(x.media), photo: cleanPhotos(x.media)[0] || null,
+      url: safeUrl(x.vdp_url), photos: cleanPhotos(x.media), photo: cleanPhotos(x.media)[0] || null,
       daysOnMarket: x.dom, source: x.source || "marketcheck",
     };
   }
