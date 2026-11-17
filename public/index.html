@@ -18,7 +18,7 @@
 
   /* top bar */
   .top { display:flex; align-items:center; justify-content:space-between; padding:calc(14px + env(safe-area-inset-top)) 0 10px; }
-  .logo { font-size:22px; font-weight:800; letter-spacing:.3px; } .logo span { color:var(--accent); }
+  .logo { font-size:22px; font-weight:800; letter-spacing:.3px; white-space:nowrap; display:flex; align-items:center; gap:6px; } .logo span { color:var(--accent); }
   .top-r { display:flex; gap:8px; align-items:center; }
   .chip { display:inline-flex; align-items:center; gap:6px; background:var(--card); border:1px solid var(--line); border-radius:99px; padding:7px 12px; font-size:14px; white-space:nowrap; max-width:180px; overflow:hidden; text-overflow:ellipsis; }
   .icon-btn { width:38px; height:38px; border-radius:50%; background:var(--card); border:1px solid var(--line); display:grid; place-items:center; font-size:18px; }
@@ -86,6 +86,9 @@
   .d-grid div { background:var(--bg); border-radius:10px; padding:9px 11px; font-size:14px; } .d-grid small { display:block; color:var(--muted); font-size:11px; }
   .list-item { background:var(--bg); border-radius:12px; padding:10px 12px; margin-bottom:8px; font-size:14px; display:flex; justify-content:space-between; gap:10px; align-items:center; }
   .note { font-size:13px; color:var(--muted); }
+  .range-ends { display:flex; justify-content:space-between; font-size:12px; }
+  input[type=range] { width:100%; accent-color:var(--accent); height:32px; }
+  .more { width:100%; padding:14px; border:1px dashed var(--line); border-radius:14px; color:var(--muted); margin:4px 0 10px; }
   .toast { position:fixed; left:50%; bottom:calc(24px + env(safe-area-inset-bottom)); transform:translate(-50%,200px); visibility:hidden; background:var(--text); color:var(--bg); padding:10px 16px; border-radius:99px; font-size:14px; font-weight:600; z-index:40; transition:transform .25s, visibility .25s; }
   .toast.show { transform:translate(-50%,0); visibility:visible; }
 </style>
@@ -126,10 +129,12 @@
 
 <!-- location sheet -->
 <div class="sheet" id="locSheet"><div class="grab"><i></i></div><h3>Your location</h3><div class="body">
-  <button class="btn" id="gpsBtn">📍 Use my current location</button>
+  <button class="btn ghost" id="gpsBtn">📍 Use my current location</button>
   <div class="field">Or enter a ZIP code<input id="zip" inputmode="numeric" maxlength="5" placeholder="e.g. 97058"></div>
-  <div class="field">Search within<select id="radius"><option value="25">25 miles</option><option value="50">50 miles</option><option value="100" selected>100 miles</option><option value="200">200 miles</option><option value="500">500 miles</option></select></div>
-  <button class="btn ghost" id="locDone">Done</button>
+  <div class="field">Search within <b id="radiusVal" style="color:var(--text);font-size:20px">45 miles</b>
+    <input id="radius" type="range" min="45" max="100" step="5" value="45">
+    <span class="range-ends"><span id="rMin">45 mi</span><span id="rMax">100 mi</span></span></div>
+  <button class="btn" id="locDone">Search this area</button>
   <p class="note" id="locMsg"></p>
 </div></div>
 
@@ -146,6 +151,15 @@
 
 <!-- menu sheet -->
 <div class="sheet" id="menuSheet"><div class="grab"><i></i></div><h3>Menu</h3><div class="body">
+  <div id="keyBox" hidden>
+    <div class="section-label">Listings source</div>
+    <p class="note">AutoHunt gets real listings from MarketCheck. Paste your free API key (sign up at universe.marketcheck.com). Without a key you'll see sample vehicles.</p>
+    <div class="field"><input id="apiKey" placeholder="MarketCheck API key" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
+    <button class="btn" id="saveKey">Save key</button>
+    <p class="note" id="keyMsg"></p>
+  </div>
+
+  <div id="watchBox">
   <div class="section-label">Saved searches</div>
   <div id="watches"><p class="note">None yet. Search, then tap “🔔 Alert me”.</p></div>
 
@@ -155,9 +169,11 @@
   <div class="row2"><button class="btn" id="saveTopic">Save</button><button class="btn ghost" id="testAlert">Send test</button></div>
   <p class="note" id="alertMsg"></p>
   <div id="alerts"></div>
+  </div>
 
   <div id="serverBox">
-    <div class="section-label">Server</div>
+    <div class="section-label">AutoHunt server (optional)</div>
+    <p class="note">Only needed for phone alerts on saved searches. Leave blank to search straight from this phone.</p>
     <div class="field">AutoHunt server address<input id="apiBase" placeholder="https://your-autohunt.onrender.com" autocapitalize="off" autocorrect="off"></div>
     <button class="btn ghost" id="saveServer">Connect</button>
     <p class="note" id="serverMsg"></p>
@@ -167,18 +183,51 @@
 
 <div class="toast" id="toast"></div>
 
+<script src="core.js"></script>
 <script>
 const $ = id => document.getElementById(id);
+const Core = window.AutoHuntCore;
 const money = n => "$" + Math.round(n).toLocaleString("en-US");
 const num = n => Math.round(n).toLocaleString("en-US");
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
-
-// ---------- server address (APK needs a remote server; the website uses its own) ----------
-const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
 const store = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+
+// ---------- where listings come from ----------
+// Website: its own AutoHunt server. Android app: straight to MarketCheck from the phone,
+// unless the user connects an AutoHunt server (needed only for background alerts).
+const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
 let API = isNative ? (store.get("apiBase", "") || "") : "";
-const api = (p, o) => fetch(API + p, o).then(r => r.json());
-if (!isNative) $("serverBox").hidden = true;
+const useServer = () => !isNative || !!API;
+const api = (p, o) => fetch(API + p, o).then(async r => { const j = await r.json().catch(() => { throw new Error("Server sent an unexpected reply"); }); if (!r.ok && j.error) throw new Error(j.error); return j; });
+const withTimeout = (p, ms, msg) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(msg)), ms))]);
+
+let apiKey = store.get("mcKey", "");
+let cfg = { mode: "demo", refreshMinutes: 15, minRadius: Core.MIN_RADIUS, maxRadius: 100 };
+
+// Phone-only bookkeeping when there's no server: price history + monthly call count
+const hist = store.get("hist", {});
+function trackPrices(list) {
+  for (const l of list) {
+    const h = hist[l.id] || (hist[l.id] = { first: l.price, t: Date.now() });
+    l.priceChange = l.price - h.first;
+  }
+  const ids = Object.keys(hist); if (ids.length > 3000) ids.sort((a, b) => hist[a].t - hist[b].t).slice(0, ids.length - 3000).forEach(k => delete hist[k]);
+  store.set("hist", hist);
+}
+function countCall() {
+  const m = new Date().toISOString().slice(0, 7), u = store.get("usage", { month: m, calls: 0 });
+  if (u.month !== m) { u.month = m; u.calls = 0; }
+  u.calls++; store.set("usage", u); return u;
+}
+
+async function fetchPage(q, start) {
+  if (useServer()) return api("/api/search?" + new URLSearchParams({ ...q, start }));
+  if (!apiKey) { const r = Core.searchDemo(q, { start }); trackPrices(r.results); return r; }
+  countCall();
+  const r = await Core.searchMarketCheck(q, { apiKey, start, maxRadius: cfg.maxRadius });
+  trackPrices(r.results);
+  return r;
+}
 
 // ---------- filter options ----------
 const OPTIONS = {
@@ -206,8 +255,8 @@ const MODELS = {
 OPTIONS.make = { title: "Make", items: [["", "Any"], ...Object.keys(MODELS).map(m => [m, m])] };
 
 let sel = Object.assign({ body: "", price: "", fuel: "", make: "", model: "" }, store.get("sel", {}));
-let loc = store.get("loc", { lat: null, lon: null, zip: "", radius: "100", label: "" });
-let results = [], sortKey = "price", cfg = { refreshMinutes: 15, maxRadius: 500 }, refreshTimer = null;
+let loc = Object.assign({ lat: null, lon: null, zip: "", label: "" }, store.get("loc", {}));
+loc.radius = String(Core.clampRadius(loc.radius || Core.MIN_RADIUS, 500));
 
 function labelFor(key) {
   if (key === "model") return sel.model || "Any";
@@ -222,10 +271,16 @@ function paintPickers() {
   store.set("sel", sel);
 }
 function paintLoc() {
-  $("locText").textContent = loc.label || (loc.zip ? "ZIP " + loc.zip : loc.lat ? "Current location" : "Set location");
-  $("zip").value = loc.zip || ""; $("radius").value = loc.radius || "100";
+  const where = loc.zip ? "ZIP " + loc.zip : loc.lat ? "Near me" : "Set location";
+  $("locText").textContent = (loc.lat || loc.zip) ? `${where} · ${loc.radius} mi` : where;
+  $("zip").value = loc.zip || "";
+  $("radius").min = cfg.minRadius; $("radius").max = cfg.maxRadius;
+  $("rMin").textContent = cfg.minRadius + " mi"; $("rMax").textContent = cfg.maxRadius + " mi";
+  loc.radius = String(Core.clampRadius(loc.radius, cfg.maxRadius));
+  $("radius").value = loc.radius; $("radiusVal").textContent = loc.radius + " miles";
   store.set("loc", loc);
 }
+$("radius").oninput = () => { $("radiusVal").textContent = $("radius").value + " miles"; };
 
 // ---------- bottom sheets with swipe-down to close ----------
 let openSheet = null;
@@ -246,15 +301,15 @@ document.querySelectorAll(".sheet").forEach(sheet => {
   const body = sheet.querySelector(".body");
   let startY = 0, dy = 0, startT = 0, dragging = false, fromGrab = false;
   const begin = (y, target) => {
+    if (target.closest("input[type=range]")) return; // let the slider work
     fromGrab = !!target.closest(".grab") || !body.contains(target);
-    // only start a close-drag if touching the handle/header, or the content is scrolled to the top
-    if (!fromGrab && body.scrollTop > 0) return;
+    if (!fromGrab && body.scrollTop > 0) return;   // content scrolled: let it scroll
     startY = y; dy = 0; startT = Date.now(); dragging = true;
   };
   const move = (y, e) => {
     if (!dragging) return;
     dy = y - startY;
-    if (dy <= 0) { if (!fromGrab) { dragging = false; } sheet.style.transform = ""; return; } // scrolling up inside content
+    if (dy <= 0) { if (!fromGrab) dragging = false; sheet.style.transform = ""; return; }
     if (e && e.cancelable) e.preventDefault();
     sheet.classList.add("dragging");
     sheet.style.transform = `translateY(${dy}px)`;
@@ -270,7 +325,6 @@ document.querySelectorAll(".sheet").forEach(sheet => {
   sheet.addEventListener("touchstart", e => begin(e.touches[0].clientY, e.target), { passive: true });
   sheet.addEventListener("touchmove", e => move(e.touches[0].clientY, e), { passive: false });
   sheet.addEventListener("touchend", end); sheet.addEventListener("touchcancel", end);
-  // mouse drag on the handle (desktop)
   sheet.querySelector(".grab").addEventListener("mousedown", e => {
     begin(e.clientY, e.target);
     const mm = ev => move(ev.clientY), mu = () => { end(); removeEventListener("mousemove", mm); removeEventListener("mouseup", mu); };
@@ -295,28 +349,40 @@ document.querySelectorAll("[data-pick]").forEach(b => b.onclick = () => {
 $("clearBtn").onclick = () => { sel = { body: "", price: "", fuel: "", make: "", model: "" }; paintPickers(); };
 
 // ---------- location ----------
-$("locChip").onclick = () => showSheet($("locSheet"));
-function getGPS() {
-  return new Promise(res => {
-    if (!navigator.geolocation) return res(false);
-    $("locMsg").textContent = "Finding you…";
-    navigator.geolocation.getCurrentPosition(
-      p => { loc = { ...loc, lat: p.coords.latitude, lon: p.coords.longitude, zip: "", label: "Near me" }; $("locMsg").textContent = ""; paintLoc(); res(true); },
-      () => { $("locMsg").textContent = "Location is off. Enter a ZIP code instead."; res(false); },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 300000 });
-  });
+$("locChip").onclick = () => { paintLoc(); $("locMsg").textContent = ""; showSheet($("locSheet")); };
+
+async function getGPS() {
+  $("locMsg").textContent = "Finding you…";
+  const done = (lat, lon) => { loc = { ...loc, lat, lon, zip: "" }; $("locMsg").textContent = ""; paintLoc(); return true; };
+  const fail = msg => { $("locMsg").textContent = msg; return false; };
+  try {
+    const G = isNative && window.Capacitor.Plugins && window.Capacitor.Plugins.Geolocation;
+    if (G) {
+      const perm = await G.requestPermissions().catch(() => null);
+      if (perm && perm.location === "denied" && perm.coarseLocation === "denied") return fail("Location permission is off for AutoHunt. Enter a ZIP code, or allow location in your phone's Settings → Apps → AutoHunt.");
+      const p = await withTimeout(G.getCurrentPosition({ enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }), 12000, "timeout");
+      return done(p.coords.latitude, p.coords.longitude);
+    }
+    if (!navigator.geolocation) return fail("This device can't share its location. Enter a ZIP code.");
+    const p = await withTimeout(new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 })), 12000, "timeout");
+    return done(p.coords.latitude, p.coords.longitude);
+  } catch (e) {
+    return fail(e && e.code === 1 ? "Location permission is off. Enter a ZIP code instead." : "Couldn't get your location (is GPS on?). Enter a ZIP code instead.");
+  }
 }
-$("gpsBtn").onclick = async () => { if (await getGPS()) { closeSheet(); if (results.length) search(); } };
+$("gpsBtn").onclick = async () => { loc.radius = $("radius").value; if (await getGPS()) { closeSheet(); search(true); } };
 $("locDone").onclick = () => {
   const z = $("zip").value.trim();
-  if (z && /^\d{5}$/.test(z)) loc = { ...loc, zip: z, lat: null, lon: null, label: "ZIP " + z };
-  loc.radius = $("radius").value; paintLoc(); closeSheet();
-  if (results.length || z) search();
+  if (z && !/^\d{5}$/.test(z)) { $("locMsg").textContent = "ZIP codes are 5 digits."; return; }
+  if (z) loc = { ...loc, zip: z, lat: null, lon: null };
+  loc.radius = $("radius").value; paintLoc();
+  if (!loc.lat && !loc.zip) { $("locMsg").textContent = "Use your location or enter a ZIP code."; return; }
+  closeSheet(); search(true);
 };
 
-// ---------- search & results ----------
+// ---------- search & results (loads every vehicle, 50 at a time, as you scroll) ----------
 function query() {
-  const q = { radius: loc.radius || "100" };
+  const q = { radius: loc.radius };
   if (loc.lat) { q.lat = loc.lat; q.lon = loc.lon; } else if (loc.zip) q.zip = loc.zip;
   if (sel.body) q.body = sel.body;
   if (sel.fuel) q.fuel = sel.fuel;
@@ -340,53 +406,91 @@ function carCard(l, rank) {
     </div></button>`;
 }
 
-function renderResults(r) {
-  const top = r.top3, rest = [...results].filter(l => !top.some(t => t.id === l.id))
-    .sort((a, b) => sortKey === "year" ? (b.year || 0) - (a.year || 0) : (a[sortKey] ?? 1e12) - (b[sortKey] ?? 1e12));
-  if (!results.length) {
-    $("results").innerHTML = `<div class="results-head"><h2>No matches</h2></div><div class="empty">Nothing clean-title under 90k miles right now.<br>Try a wider price range or a bigger search area.</div>`;
+let state = null, sortKey = "price", searchId = 0, refreshTimer = null;
+const sorters = {
+  price: (a, b) => a.price - b.price,
+  distance: (a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9),
+  miles: (a, b) => a.miles - b.miles,
+  year: (a, b) => (b.year || 0) - (a.year || 0),
+};
+
+function renderResults() {
+  const s = state; if (!s) return;
+  const list = s.results;
+  if (!list.length) {
+    $("results").innerHTML = `<div class="results-head"><h2>No matches</h2></div><div class="empty">No clean-title vehicles under 90k miles within ${s.radius} miles right now.<br><br><button class="btn ghost" id="widen">Change distance or location</button></div>`;
+    $("widen").onclick = () => $("locChip").click();
     return;
   }
+  const top = list.slice(0, 3);
+  const rest = list.slice(3).sort(sorters[sortKey]);
+  const shown = s.total ? `${num(Math.max(s.total, list.length))} vehicles` : `${list.length} vehicles`;
   $("results").innerHTML = `
-    <div class="results-head"><h2>${results.length} vehicles</h2><button class="muted" id="watchBtn">🔔 Alert me</button></div>
-    ${r.mode === "demo" ? '<p class="note">Demo mode: sample listings, not real vehicles.</p>' : ""}
+    <div class="results-head"><h2>${shown}</h2>${useServer() ? '<button class="muted" id="watchBtn">🔔 Alert me</button>' : ""}</div>
+    <p class="note" style="margin:-4px 0 6px">Within ${s.radius} mi of ${esc(loc.zip ? "ZIP " + loc.zip : "you")} · <a href="#" id="changeArea">change</a></p>
+    ${s.mode === "demo" ? `<p class="note">Sample listings, not real vehicles.${isNative ? " Add your MarketCheck key in ☰ Menu for real ones." : ""}</p>` : ""}
     <div class="section-label">Top 3 cheapest</div>
     ${top.map((l, i) => carCard(l, i + 1)).join("")}
-    ${rest.length ? `<div class="section-label">More options</div>
+    ${rest.length ? `<div class="section-label">All other vehicles</div>
       <div class="sorts">${[["price", "Lowest price"], ["distance", "Closest"], ["miles", "Lowest miles"], ["year", "Newest"]].map(([k, t]) => `<button data-sort="${k}" class="${sortKey === k ? "on" : ""}">${t}</button>`).join("")}</div>
-      ${rest.map(l => carCard(l)).join("")}` : ""}`;
+      ${sortKey !== "price" && s.hasMore ? `<p class="note">Sorting the ${list.length} loaded so far. Keep scrolling to load more.</p>` : ""}
+      ${rest.map(l => carCard(l)).join("")}` : ""}
+    ${s.hasMore ? `<button class="more" id="moreBtn">${s.loading ? "Loading more…" : "Load more vehicles"}</button>` : list.length > 3 ? `<p class="status">That's every match within ${s.radius} miles.</p>` : ""}`;
   $("results").querySelectorAll(".car").forEach(c => c.onclick = () => showCar(c.dataset.id));
-  $("results").querySelectorAll("[data-sort]").forEach(b => b.onclick = () => { sortKey = b.dataset.sort; renderResults(r); });
-  $("watchBtn").onclick = openWatch;
+  $("results").querySelectorAll("[data-sort]").forEach(b => b.onclick = () => { sortKey = b.dataset.sort; renderResults(); });
+  $("changeArea").onclick = e => { e.preventDefault(); $("locChip").click(); };
+  if ($("watchBtn")) $("watchBtn").onclick = openWatch;
+  if ($("moreBtn")) { $("moreBtn").onclick = loadMore; observer.observe($("moreBtn")); }
 }
 
-let lastResponse = null;
+const observer = new IntersectionObserver(entries => { if (entries.some(e => e.isIntersecting)) loadMore(); }, { rootMargin: "600px" });
+
+async function loadMore() {
+  const s = state; if (!s || !s.hasMore || s.loading) return;
+  s.loading = true; if ($("moreBtn")) $("moreBtn").textContent = "Loading more…";
+  const id = searchId;
+  try {
+    const r = await withTimeout(fetchPage(s.q, s.nextStart), 25000, "Search took too long. Check your connection.");
+    if (id !== searchId) return;
+    const seen = new Set(s.results.map(l => l.id));
+    s.results.push(...r.results.filter(l => !seen.has(l.id)));
+    s.results.sort((a, b) => a.price - b.price);
+    Object.assign(s, { hasMore: r.hasMore, nextStart: r.nextStart, total: r.total || s.total });
+  } catch (e) { toast(e.message); s.hasMore = s.hasMore && !/limit|key/i.test(e.message); }
+  s.loading = false;
+  if (id === searchId) renderResults();
+}
+
 async function search(scroll) {
+  const id = ++searchId;
+  $("status").textContent = "";
+  $("results").innerHTML = `<div class="results-head"><h2 id="phase">${loc.lat || loc.zip ? "Searching…" : "Finding your location…"}</h2></div>${'<div class="skeleton"></div>'.repeat(4)}`;
+  if (scroll) $("results").scrollIntoView({ behavior: "smooth", block: "start" });
   if (!loc.lat && !loc.zip) {
     const ok = await getGPS();
-    if (!ok) { showSheet($("locSheet")); return; }
+    if (id !== searchId) return;
+    if (!ok) { $("results").innerHTML = ""; showSheet($("locSheet")); return; }
+    if ($("phase")) $("phase").textContent = "Searching…";
   }
-  $("status").textContent = "";
-  $("results").innerHTML = `<div class="results-head"><h2>Searching…</h2></div>${'<div class="skeleton"></div>'.repeat(4)}`;
-  if (scroll) $("results").scrollIntoView({ behavior: "smooth", block: "start" });
+  const q = query();
   try {
-    const r = await api("/api/search?" + new URLSearchParams(query()));
-    if (r.error) throw new Error(r.error);
-    lastResponse = r; results = r.results;
-    renderResults(r);
+    const r = await withTimeout(fetchPage(q, 0), 25000, "Search took too long. Check your connection.");
+    if (id !== searchId) return;
+    state = { q, results: r.results.slice().sort((a, b) => a.price - b.price), total: r.total, hasMore: r.hasMore, nextStart: r.nextStart, mode: r.mode, radius: Core.clampRadius(q.radius, cfg.maxRadius), loading: false };
+    renderResults();
     $("status").textContent = `Updated ${new Date(r.fetchedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
   } catch (e) {
-    $("results").innerHTML = "";
-    $("status").innerHTML = `<span class="err">Couldn't load vehicles: ${esc(e.message)}</span>`;
-    if (isNative && /fetch|network/i.test(e.message)) openMenuServer();
+    if (id !== searchId) return;
+    $("results").innerHTML = `<div class="results-head"><h2>Couldn't load vehicles</h2></div><div class="empty">${esc(e.message)}<br><br><button class="btn ghost" id="retry">Try again</button></div>`;
+    $("retry").onclick = () => search(false);
   }
   clearTimeout(refreshTimer);
-  refreshTimer = setTimeout(() => search(false), cfg.refreshMinutes * 60000);
+  refreshTimer = setTimeout(() => { if (document.visibilityState === "visible") search(false); }, Math.max(15, cfg.refreshMinutes) * 60000);
 }
 $("go").onclick = () => search(true);
 
 function showCar(id) {
-  const l = results.find(x => x.id === id); if (!l) return;
+  const l = state && state.results.find(x => x.id === id); if (!l) return;
   const bg = l.photo ? `style="background-image:url('${esc(l.photo)}')"` : "";
   const dir = l.lat && l.lon ? `https://www.google.com/maps/dir/?api=1&destination=${l.lat},${l.lon}` : null;
   $("carBody").innerHTML = `
@@ -409,17 +513,17 @@ function showCar(id) {
   showSheet($("carSheet"));
 }
 
-// ---------- alerts / watches ----------
+// ---------- alerts / saved searches (need the AutoHunt server) ----------
 function describe() { return [labelFor("body"), labelFor("price"), labelFor("fuel"), sel.make, sel.model].filter(v => v && v !== "Any").join(" · ") || "Any vehicle"; }
-function openWatch() { $("watchDesc").textContent = describe() + " · within " + (loc.radius || 100) + " mi"; $("target").value = ""; showSheet($("watchSheet")); }
+function openWatch() { $("watchDesc").textContent = describe() + " · within " + loc.radius + " mi"; $("target").value = ""; showSheet($("watchSheet")); }
 $("watchSave").onclick = async () => {
   const body = { ...query(), label: describe() }; if ($("target").value) body.targetPrice = $("target").value;
   try { await api("/api/watches", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); toast("Alerts on for this search"); }
   catch { toast("Couldn't save. Check your connection."); }
   closeSheet(); setTimeout(loadWatches, 800);
 };
-
 async function loadWatches() {
+  if (!useServer()) return;
   const ws = await api("/api/watches").catch(() => []);
   $("watches").innerHTML = ws.length ? ws.map(w => {
     const best = w.error ? `<span class="err">${esc(w.error)}</span>` : w.top3?.[0] ? `Best ${money(w.top3[0].price)} · ${esc(w.top3[0].title)}` : "Checking…";
@@ -428,6 +532,7 @@ async function loadWatches() {
   $("watches").querySelectorAll("[data-del]").forEach(b => b.onclick = async () => { await api("/api/watches/" + b.dataset.del, { method: "DELETE" }); loadWatches(); });
 }
 async function loadAlerts() {
+  if (!useServer()) return;
   const a = await api("/api/alerts").catch(() => []);
   $("alerts").innerHTML = a.slice(0, 8).map(x => `<div class="list-item"><div><b>${esc(x.title)}</b><br><span class="note">${esc(x.message)}</span></div>${x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener">View</a>` : ""}</div>`).join("");
 }
@@ -444,32 +549,51 @@ $("testAlert").onclick = async () => {
   loadAlerts();
 };
 
-function openMenuServer() { $("apiBase").value = API; showSheet($("menuSheet")); }
-$("menuBtn").onclick = () => { loadWatches(); loadAlerts(); $("apiBase").value = API; showSheet($("menuSheet")); };
+// ---------- menu ----------
+function paintMenu() {
+  $("keyBox").hidden = !(isNative && !API);
+  $("watchBox").hidden = !useServer();
+  $("serverBox").hidden = !isNative;
+  $("apiKey").value = apiKey; $("apiBase").value = API;
+  const u = store.get("usage", { calls: 0 });
+  $("usage").textContent = useServer()
+    ? (cfg.mode === "live" ? `Searches used this month: ${cfg.usage.calls} of ${cfg.usage.limit}` : "Demo mode: sample listings only. Add a MarketCheck key on your server for real listings.")
+    : apiKey ? `Searches used this month on this phone: ${u.month === new Date().toISOString().slice(0, 7) ? u.calls : 0} (free plan: 500)` : "Showing sample listings until you add a MarketCheck key.";
+}
+$("menuBtn").onclick = () => { paintMenu(); loadWatches(); loadAlerts(); showSheet($("menuSheet")); };
+$("saveKey").onclick = () => {
+  apiKey = $("apiKey").value.trim(); store.set("mcKey", apiKey);
+  cfg.mode = apiKey ? "live" : "demo"; $("demoTag").hidden = !!apiKey;
+  $("keyMsg").textContent = apiKey ? "Saved. Searching real listings…" : "Key removed. Showing sample listings.";
+  paintMenu(); if (loc.lat || loc.zip) search(false);
+};
 $("saveServer").onclick = () => {
   let v = $("apiBase").value.trim().replace(/\/$/, "");
   if (v && !/^https?:\/\//.test(v)) v = "https://" + v;
-  API = v; store.set("apiBase", v); $("serverMsg").textContent = "Connecting…"; boot();
+  API = v; store.set("apiBase", v); $("serverMsg").textContent = v ? "Connecting…" : "Searching from this phone.";
+  boot();
 };
 
-function toast(t) { const el = $("toast"); el.textContent = t; el.classList.add("show"); setTimeout(() => el.classList.remove("show"), 2200); }
+function toast(t) { const el = $("toast"); el.textContent = t; el.classList.add("show"); setTimeout(() => el.classList.remove("show"), 2600); }
 
 // ---------- start ----------
 async function boot() {
-  paintPickers(); paintLoc();
-  try {
-    cfg = await api("/api/config");
-    $("serverMsg").textContent = isNative ? "Connected." : "";
-    $("demoTag").hidden = cfg.mode !== "demo";
-    [...$("radius").options].forEach(o => o.disabled = +o.value > cfg.maxRadius);
-    if (+loc.radius > cfg.maxRadius) { loc.radius = String(cfg.maxRadius); paintLoc(); }
-    $("usage").textContent = cfg.mode === "live" ? `Searches used this month: ${cfg.usage.calls} of ${cfg.usage.limit}` : "Demo mode: sample listings only. Add a MarketCheck key on your server for real listings.";
-    loadSettings();
-    if (loc.lat || loc.zip) search(false);
-  } catch {
-    if (isNative) { $("serverMsg").textContent = API ? `Couldn't reach ${API}.` : "Enter your AutoHunt server address to start."; openMenuServer(); }
-    else $("status").innerHTML = '<span class="err">Server not reachable.</span>';
+  paintPickers();
+  if (useServer()) {
+    try {
+      cfg = { ...cfg, ...(await withTimeout(api("/api/config"), 10000, "timeout")) };
+      if (isNative) $("serverMsg").textContent = "Connected.";
+      loadSettings();
+    } catch {
+      if (isNative) { $("serverMsg").textContent = `Couldn't reach ${API}. Clear the address to search from this phone.`; paintMenu(); showSheet($("menuSheet")); }
+      else $("status").innerHTML = '<span class="err">Server not reachable.</span>';
+    }
+  } else {
+    cfg = { ...cfg, mode: apiKey ? "live" : "demo", minRadius: Core.MIN_RADIUS, maxRadius: 100, refreshMinutes: 360 };
   }
+  $("demoTag").hidden = cfg.mode !== "demo";
+  paintLoc();
+  if (loc.lat || loc.zip) search(false);
 }
 boot();
 </script>

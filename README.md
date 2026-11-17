@@ -55,16 +55,20 @@ You get a notification when, on any watched search:
 Anyone who knows your topic name can read its alerts, so keep the random name.
 
 ## Android app (APK)
+The app works on its own: it searches MarketCheck straight from your phone, so no server is needed just to browse vehicles. Put your MarketCheck key in **☰ Menu → Listings source** (until then it shows sample vehicles). Connecting an AutoHunt server in the menu is optional and only needed for background price-drop alerts.
+
 Every push to `main` that touches the app builds a fresh APK with GitHub Actions and publishes it to the **Latest APK** release:
 https://github.com/mrsirwithpizza101/AutoHunt/releases/tag/latest-apk
 
-Install: open that link on your phone → download **AutoHunt.apk** → open it (allow installs from your browser when asked). On first launch, enter your server's https address. The app uses your phone's GPS directly.
+Install: open that link on your phone → download **AutoHunt.apk** → open it (allow installs from your browser when asked). Allow location when asked, or enter a ZIP.
 
 You can also rebuild by hand: **Actions → Build Android APK → Run workflow**.
 
 ## Features
 - Filters: make, model, year range, price range, body, drivetrain, fuel, seller type (dealer / private / auction), radius
-- GPS location (browser geolocation) with ZIP fallback; distance + Google Maps directions per listing
+- GPS location with ZIP fallback; search radius 45–100 miles (never less than 45; up to 500 on paid MarketCheck plans via `MAX_RADIUS`)
+- Shows **every** matching vehicle in the area: loads 50 at a time, cheapest first, as you scroll (each page = 1 API call)
+- Distance + Google Maps directions per listing
 - Auto-refresh every 15 min while the page is open
 - **Watched searches**: saved on the server and re-checked on a schedule even with the app closed, with optional target price
 - **Price-drop alerts** pushed to your phone (ntfy), plus an in-app alert feed
